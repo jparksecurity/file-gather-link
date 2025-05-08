@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,7 +13,7 @@ import { ChecklistFile } from "@/types/checklist";
 import Header from "@/components/manager/Header";
 import ShareSection from "@/components/manager/ShareSection";
 import DocumentList from "@/components/manager/DocumentList";
-import UnclassifiedFileList from "@/components/manager/UnclassifiedFileList";
+import TableUnclassifiedFileList from "@/components/manager/TableUnclassifiedFileList";
 import ManagerInstructions from "@/components/manager/ManagerInstructions";
 
 const ManagerChecklist: React.FC = () => {
@@ -147,7 +146,7 @@ const ManagerChecklist: React.FC = () => {
       <Header />
 
       <main className="container py-8 flex-1">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-5xl mx-auto"> {/* Increased max width for tables */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold">Document Manager</h1>
             <Badge variant="outline" className="text-sm">
@@ -166,7 +165,7 @@ const ManagerChecklist: React.FC = () => {
             onDownloadAll={downloadAllFiles}
           />
           
-          <UnclassifiedFileList
+          <TableUnclassifiedFileList
             files={unclassifiedFiles}
             onDownload={handleDownload}
           />

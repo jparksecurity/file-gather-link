@@ -1,9 +1,23 @@
 
 import React from "react";
-import { FilesIcon } from "lucide-react";
+import { FilesIcon, Download, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checklist, ChecklistFile, ChecklistItem } from "@/types/checklist";
-import DocumentItem from "./DocumentItem";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import StatusBadge from "@/components/StatusBadge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface DocumentListProps {
   checklist: Checklist;
@@ -54,20 +68,79 @@ const DocumentList: React.FC<DocumentListProps> = ({
         </Button>
       </div>
       
-      {checklist.items.map((item: ChecklistItem) => {
-        const status = getItemStatus(item.id);
-        const file = getItemFile(item.id);
-        
-        return (
-          <DocumentItem 
-            key={item.id}
-            item={item}
-            file={file}
-            status={status}
-            onDownload={onDownload}
-          />
-        );
-      })}
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[40%]">Document Requirement</TableHead>
+              <TableHead className="w-[20%]">Status</TableHead>
+              <TableHead className="w-[25%]">File</TableHead>
+              <TableHead className="w-[15%] text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {checklist.items.map((item: ChecklistItem) => {
+              const status = getItemStatus(item.id);
+              const file = getItemFile(item.id);
+              
+              return (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">
+                    <div>
+                      <div>{item.title}</div>
+                      {item.description && (
+                        <div className="text-xs text-muted-foreground mt-1">{item.description}</div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <StatusBadge status={status} />
+                            {status === 'unclassified' && (
+                              <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        {status === 'unclassified' && (
+                          <TooltipContent>
+                            <p>AI couldn't classify this document with confidence</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                  <TableCell>
+                    {file ? (
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm truncate">{file.filename}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(file.uploaded_at).toLocaleString()}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No file uploaded</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {file && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => onDownload(file)}
+                      >
+                        <Download className="h-4 w-4 mr-1" /> Download
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
