@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { 
@@ -69,6 +68,9 @@ const ManagerChecklist = () => {
       const a = document.createElement('a');
       a.href = url;
       a.download = file.filename || 'download.pdf'; // Use filename or fallback
+      a.setAttribute('download', file.filename || 'download.pdf'); // Extra attribute for compatibility
+      a.rel = 'noopener noreferrer'; // Security best practice
+      a.target = '_blank'; // Open in new tab as fallback
       a.style.display = 'none'; // Hide the element
       
       // Add to DOM, trigger click, then remove

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Checklist, ChecklistItem, ChecklistFile } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -310,7 +309,12 @@ export async function getDownloadUrl(filePath: string) {
     const { data, error } = await supabase
       .storage
       .from('doccollect')
-      .createSignedUrl(filePath, 60 * 60); // 1 hour expiry
+      .createSignedUrl(filePath, 60 * 60, {
+        download: true, // This forces a download instead of display in browser
+        transform: {
+          quality: 100 // Maintain original quality
+        }
+      }); 
     
     if (error) throw error;
     
