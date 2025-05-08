@@ -221,7 +221,7 @@ export async function uploadFile(file: File, checklistSlug: string, itemId?: str
       .getPublicUrl(filePath);
     
     // Call our edge function to classify the document
-    const classifyResponse = await fetch(`${window.location.origin}/.netlify/functions/supabase-classify-document`, {
+    const classifyResponse = await fetch(`${window.location.origin}/api/classify-document`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

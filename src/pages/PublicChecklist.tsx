@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { useParams } from "react-router-dom";
 import { 
   Card, 
@@ -28,7 +28,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"items" | "global">("items");
 
   const { data: checklist, isLoading, error } = useQuery({
     queryKey: ['checklist', slug],
@@ -130,17 +129,64 @@ const PublicChecklist = () => {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">Document Checklist</h1>
           <p className="mb-6 text-muted-foreground">
-            Please upload the requested PDFs. You can upload directly to specific requirements or use the AI to automatically classify your documents.
+            Please upload the requested PDFs. You can use AI to automatically classify your documents or upload directly to specific requirements.
           </p>
 
-          <Tabs defaultValue="items" value={activeTab} onValueChange={(v) => setActiveTab(v as "items" | "global")}>
+          <Tabs defaultValue="global">
             <TabsList className="mb-6">
-              <TabsTrigger value="items">Upload to Specific Requirements</TabsTrigger>
               <TabsTrigger value="global">AI Classification</TabsTrigger>
+              <TabsTrigger value="items">Manual Upload</TabsTrigger>
             </TabsList>
             
+            <TabsContent value="global">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-4">AI-Powered Document Classification</h2>
+                <p className="mb-4 text-muted-foreground">
+                  Drop any document here and our AI will analyze and classify it to the correct requirement.
+                </p>
+                <GlobalFileDropzone onFileAccepted={(file) => handleFileUpload(file)} />
+              </div>
+              
+              <div className="mt-8">
+                <h3 className="text-lg font-medium mb-3">Required Documents</h3>
+                <div className="space-y-3">
+                  {checklist.items.map((item) => {
+                    const status = getItemStatus(item.id);
+                    
+                    return (
+                      <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg bg-white">
+                        <div>
+                          <p className="font-medium">{item.title}</p>
+                          {item.description && (
+                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                          )}
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>
+                                <StatusBadge status={status} />
+                                {status === 'unclassified' && (
+                                  <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            {status === 'unclassified' && (
+                              <TooltipContent>
+                                <p>AI couldn't classify this document with confidence</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </TabsContent>
+            
             <TabsContent value="items">
-              <h2 className="text-xl font-semibold mb-4">Required Documents</h2>
+              <h2 className="text-xl font-semibold mb-4">Manual Upload to Specific Requirements</h2>
               <div className="space-y-4 mb-8">
                 {checklist.items.map((item) => {
                   const status = getItemStatus(item.id);
@@ -186,16 +232,6 @@ const PublicChecklist = () => {
                 })}
               </div>
             </TabsContent>
-            
-            <TabsContent value="global">
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4">AI-Powered Document Classification</h2>
-                <p className="mb-4 text-muted-foreground">
-                  Drop any document here and our AI will analyze and classify it to the correct requirement.
-                </p>
-                <GlobalFileDropzone onFileAccepted={(file) => handleFileUpload(file)} />
-              </div>
-            </TabsContent>
           </Tabs>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -203,7 +239,6 @@ const PublicChecklist = () => {
             <ul className="list-disc list-inside text-sm text-blue-700 mt-2">
               <li>Maximum file size is 100 MB per document</li>
               <li>Only PDF files are accepted</li>
-              <li>You may need to refresh the page to see updated status</li>
               <li>Each requirement can only have one file</li>
               <li>The AI will try to match your document to the correct requirement</li>
             </ul>

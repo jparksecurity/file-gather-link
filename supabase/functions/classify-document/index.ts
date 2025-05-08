@@ -56,61 +56,85 @@ serve(async (req) => {
     
     console.log("Sending to OpenAI for classification")
     
-    // Make the request to OpenAI
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini', // Using gpt-4o-mini as a replacement for gpt-4.1-nano
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI that classifies documents. You will receive a filename and a list of possible document categories. Your task is to determine which category the document belongs to based on the filename. Return only the ID of the matching category, or "unclassified" if you cannot determine a match with confidence.'
-          },
-          {
-            role: 'user',
-            content: `Filename: ${filename}\n\nPossible categories:\n${itemDescriptions.map(item => `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`).join('\n\n')}\n\nWhich category does this document belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 50
-      })
-    })
-    
-    if (!openaiResponse.ok) {
-      const errorData = await openaiResponse.json()
-      console.error("OpenAI API error:", errorData)
+    // Check if OPENAI_API_KEY is available
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!openaiApiKey) {
+      console.error("OpenAI API key is missing")
       return new Response(
-        JSON.stringify({ status: 'unclassified', error: 'AI classification failed, marking as unclassified' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          status: 'unclassified', 
+          error: 'OpenAI API key is not configured'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
     
-    const openaiData = await openaiResponse.json()
-    let matchedItemId = openaiData.choices[0].message.content.trim()
-    
-    // Validate the response
-    const isValidItemId = itemDescriptions.some(item => item.id === matchedItemId)
-    
-    if (!isValidItemId && matchedItemId !== 'unclassified') {
-      console.log(`Invalid item ID returned: ${matchedItemId}, marking as unclassified`)
-      matchedItemId = 'unclassified'
+    try {
+      // Make the request to OpenAI
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini', // Using gpt-4o-mini as a replacement for gpt-4.1-nano
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an AI that classifies documents. You will receive a filename and a list of possible document categories. Your task is to determine which category the document belongs to based on the filename. Return only the ID of the matching category, or "unclassified" if you cannot determine a match with confidence.'
+            },
+            {
+              role: 'user',
+              content: `Filename: ${filename}\n\nPossible categories:\n${itemDescriptions.map(item => `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`).join('\n\n')}\n\nWhich category does this document belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 50
+        })
+      })
+      
+      if (!openaiResponse.ok) {
+        const errorData = await openaiResponse.json()
+        console.error("OpenAI API error:", errorData)
+        return new Response(
+          JSON.stringify({ status: 'unclassified', error: 'AI classification failed, marking as unclassified' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      const openaiData = await openaiResponse.json()
+      let matchedItemId = openaiData.choices[0].message.content.trim()
+      
+      // Validate the response
+      const isValidItemId = itemDescriptions.some(item => item.id === matchedItemId)
+      
+      if (!isValidItemId && matchedItemId !== 'unclassified') {
+        console.log(`Invalid item ID returned: ${matchedItemId}, marking as unclassified`)
+        matchedItemId = 'unclassified'
+      }
+      
+      const status = matchedItemId === 'unclassified' ? 'unclassified' : 'uploaded'
+      const finalItemId = matchedItemId === 'unclassified' ? null : matchedItemId
+      
+      return new Response(
+        JSON.stringify({ 
+          status, 
+          item_id: finalItemId 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    } catch (openaiError) {
+      console.error("Error calling OpenAI API:", openaiError)
+      return new Response(
+        JSON.stringify({ 
+          status: 'unclassified', 
+          item_id: null,
+          error: 'Error calling OpenAI API, marking as unclassified' 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
     }
-    
-    const status = matchedItemId === 'unclassified' ? 'unclassified' : 'uploaded'
-    const finalItemId = matchedItemId === 'unclassified' ? null : matchedItemId
-    
-    return new Response(
-      JSON.stringify({ 
-        status, 
-        item_id: finalItemId 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-    
   } catch (error) {
     console.error("Error in classify-document function:", error)
     
