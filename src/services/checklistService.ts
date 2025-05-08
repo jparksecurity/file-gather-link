@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Checklist, ChecklistItem, ChecklistFile } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -220,51 +219,27 @@ export async function uploadFile(file: File, checklistSlug: string, itemId?: str
       .from('doccollect')
       .getPublicUrl(filePath);
     
-    // Call our classify-document edge function using the correct URL path
-    // Update to use the correct Netlify redirect path
+    // Call the classify-document function using Supabase's function invocation
     try {
       console.log("Calling classification API with URL:", publicUrlData.publicUrl);
       console.log("Available items:", availableItems);
       
-      const classifyResponse = await fetch(`/.netlify/functions/supabase-classify-document`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileUrl: publicUrlData.publicUrl,
-          items: availableItems
-        })
-      });
+      // Use supabase.functions.invoke instead of a direct fetch
+      const { data: classificationResult, error: functionError } = await supabase.functions.invoke(
+        'classify-document', 
+        {
+          body: JSON.stringify({
+            fileUrl: publicUrlData.publicUrl,
+            items: availableItems
+          })
+        }
+      );
       
-      if (!classifyResponse.ok) {
-        console.error("Classification API error status:", classifyResponse.status);
-        const errorText = await classifyResponse.text();
-        console.error("Classification API error:", errorText);
-        
-        // Insert file as unclassified on API error
-        const { data: fileData, error: fileError } = await supabase
-          .from('checklist_files')
-          .insert([{
-            checklist_id: checklistData.id,
-            item_id: null,
-            filename: file.name,
-            file_path: filePath,
-            status: 'unclassified'
-          }])
-          .select('id, item_id, filename, status, uploaded_at, file_path')
-          .single();
-        
-        if (fileError) throw fileError;
-        
-        return {
-          ...fileData,
-          status: fileData.status as "uploaded" | "unclassified"
-        } as ChecklistFile;
+      if (functionError) {
+        console.error("Function invocation error:", functionError);
+        throw new Error(`Classification failed: ${functionError.message}`);
       }
       
-      // Process the AI response
-      const classificationResult = await classifyResponse.json();
       console.log("Classification result:", classificationResult);
       
       const { status, item_id } = classificationResult;
