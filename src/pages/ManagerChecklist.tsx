@@ -1,31 +1,23 @@
 
 import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle,
-  CardFooter
-} from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checklist, ChecklistFile } from "@/types/checklist";
-import StatusBadge from "@/components/StatusBadge";
+import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { FileCheck, AlertCircle, Download, Copy, HelpCircle, FilesIcon } from "lucide-react";
 import { getChecklist, getDownloadUrl } from "@/services/checklistService";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { ChecklistFile } from "@/types/checklist";
 
-const ManagerChecklist = () => {
+// Import our new components
+import Header from "@/components/manager/Header";
+import ShareSection from "@/components/manager/ShareSection";
+import DocumentList from "@/components/manager/DocumentList";
+import UnclassifiedFileList from "@/components/manager/UnclassifiedFileList";
+import ManagerInstructions from "@/components/manager/ManagerInstructions";
+
+const ManagerChecklist: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -38,27 +30,10 @@ const ManagerChecklist = () => {
     enabled: !!slug && !!adminKey,
   });
 
-  const getItemStatus = (itemId: string) => {
-    if (!checklist?.files?.length) return 'missing';
-    
-    const itemFiles = checklist.files.filter(file => file.item_id === itemId);
-    
-    if (!itemFiles.length) return 'missing';
-    
-    if (itemFiles.some(file => file.status === 'uploaded')) return 'uploaded';
-    
-    return 'unclassified';
-  };
-
-  const getItemFile = (itemId: string) => {
-    if (!checklist?.files?.length) return null;
-    
-    // Find uploaded file first, then unclassified if no uploaded file exists
-    const uploadedFile = checklist.files.find(file => file.item_id === itemId && file.status === 'uploaded');
-    if (uploadedFile) return uploadedFile;
-    
-    const unclassifiedFile = checklist.files.find(file => file.item_id === itemId && file.status === 'unclassified');
-    return unclassifiedFile;
+  // Function to get unclassified files
+  const getUnclassifiedFiles = () => {
+    if (!checklist?.files) return [];
+    return checklist.files.filter(file => file.status === 'unclassified' && file.item_id === null);
   };
 
   const handleDownload = async (file: ChecklistFile) => {
@@ -134,26 +109,6 @@ const ManagerChecklist = () => {
     }
   };
 
-  const copyPublicUrl = () => {
-    // Use the stored public_url from the database
-    const fullUrl = `${window.location.origin}${checklist?.public_url}`;
-    navigator.clipboard.writeText(fullUrl);
-    toast.success("Public URL copied to clipboard");
-  };
-
-  const copyManagerUrl = () => {
-    // Use the stored manager_url from the database
-    const fullUrl = `${window.location.origin}${checklist?.manager_url}`;
-    navigator.clipboard.writeText(fullUrl);
-    toast.success("Manager URL copied to clipboard");
-  };
-
-  // Function to get unclassified files
-  const getUnclassifiedFiles = () => {
-    if (!checklist?.files) return [];
-    return checklist.files.filter(file => file.status === 'unclassified' && file.item_id === null);
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -189,14 +144,7 @@ const ManagerChecklist = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white shadow-sm py-4">
-        <div className="container flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileCheck className="size-6 text-primary" />
-            <h1 className="text-xl font-bold">DocCollect</h1>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="container py-8 flex-1">
         <div className="max-w-3xl mx-auto">
@@ -207,169 +155,23 @@ const ManagerChecklist = () => {
             </Badge>
           </div>
           
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Share With Document Providers</CardTitle>
-              <CardDescription>
-                Send this public URL to people who need to upload documents
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <code className="bg-muted px-3 py-2 rounded-md flex-1 text-sm overflow-x-auto">
-                  {window.location.origin}{checklist.public_url}
-                </code>
-                <Button size="icon" variant="outline" onClick={copyPublicUrl}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t bg-muted/50 flex">
-              <div className="text-sm text-muted-foreground">
-                <p className="font-medium">
-                  <span className="text-amber-600">●</span> Important:
-                </p>
-                <p className="mt-1">
-                  Save your manager URL (this page). It contains your secure admin key.
-                </p>
-              </div>
-              <Button size="sm" variant="ghost" className="ml-auto" onClick={copyManagerUrl}>
-                Copy Manager URL
-              </Button>
-            </CardFooter>
-          </Card>
+          <ShareSection 
+            publicUrl={checklist.public_url} 
+            managerUrl={checklist.manager_url} 
+          />
           
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Document Checklist Status</h2>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={downloadAllFiles}
-              disabled={!checklist.files?.length}
-            >
-              <FilesIcon className="h-4 w-4 mr-1" /> Download All Files
-            </Button>
-          </div>
+          <DocumentList
+            checklist={checklist}
+            onDownload={handleDownload}
+            onDownloadAll={downloadAllFiles}
+          />
           
-          <div className="space-y-6 mb-8">
-            {checklist.items.map((item) => {
-              const status = getItemStatus(item.id);
-              const file = getItemFile(item.id);
-              
-              return (
-                <Card key={item.id} className={`relative ${status === 'uploaded' ? 'border-green-200' : ''}`}>
-                  <div className="absolute top-4 right-4">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span>
-                            <StatusBadge status={status} />
-                            {status === 'unclassified' && (
-                              <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
-                            )}
-                          </span>
-                        </TooltipTrigger>
-                        {status === 'unclassified' && (
-                          <TooltipContent>
-                            <p>AI couldn't classify this document with confidence</p>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <CardHeader>
-                    <CardTitle>{item.title}</CardTitle>
-                    {item.description && (
-                      <CardDescription>{item.description}</CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    {file ? (
-                      <div className="flex items-center justify-between bg-slate-50 p-3 rounded-md">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm truncate">{file.filename}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Uploaded {new Date(file.uploaded_at).toLocaleString()}
-                          </p>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDownload(file)}
-                        >
-                          <Download className="h-4 w-4 mr-1" /> Download
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="text-center py-3 bg-slate-50 rounded-md">
-                        <p className="text-muted-foreground text-sm">No file uploaded yet</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <UnclassifiedFileList
+            files={unclassifiedFiles}
+            onDownload={handleDownload}
+          />
           
-          {unclassifiedFiles.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4">Unclassified Files</h2>
-              <div className="space-y-4">
-                {unclassifiedFiles.map(file => (
-                  <Card key={file.id}>
-                    <CardHeader>
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <CardTitle className="text-lg">{file.filename}</CardTitle>
-                          <CardDescription>
-                            Uploaded {new Date(file.uploaded_at).toLocaleString()}
-                          </CardDescription>
-                        </div>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center">
-                                <StatusBadge status="unclassified" />
-                                <HelpCircle className="ml-1 h-4 w-4 text-amber-500" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>AI couldn't match this document to any requirement</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="flex items-center justify-between bg-slate-50 p-3 rounded-md">
-                        <div className="flex-1">
-                          <p className="text-sm text-muted-foreground">
-                            This file couldn't be automatically classified by our AI
-                          </p>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDownload(file)}
-                        >
-                          <Download className="h-4 w-4 mr-1" /> Download
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <h3 className="font-medium text-blue-800">Manager Instructions</h3>
-            <ul className="list-disc list-inside text-sm text-blue-700 mt-2">
-              <li>Files are auto-classified by AI but may need review</li>
-              <li>This manager URL gives full access to all documents</li>
-              <li>Store your manager URL securely - it can't be recovered</li>
-            </ul>
-          </div>
+          <ManagerInstructions />
         </div>
       </main>
     </div>
