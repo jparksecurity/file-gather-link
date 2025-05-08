@@ -48,12 +48,12 @@ const PublicChecklist = () => {
         : "File uploaded successfully!");
       
       // Update the local cache with the new file
-      queryClient.setQueryData<Checklist>(['checklist', slug], (old) => {
-        if (!old) return old;
+      queryClient.setQueryData<Checklist>(['checklist', slug], (oldData) => {
+        if (!oldData) return oldData;
         
         return {
-          ...old,
-          files: [...(old.files || []), newFile]
+          ...oldData,
+          files: [...(oldData.files || []), newFile]
         };
       });
     },
@@ -106,7 +106,7 @@ const PublicChecklist = () => {
             return {
               ...file,
               item_id: newItemId === 'unclassified' ? null : newItemId,
-              status: newItemId === 'unclassified' ? 'unclassified' : 'uploaded'
+              status: newItemId === 'unclassified' ? 'unclassified' as const : 'uploaded' as const
             };
           }
           return file;

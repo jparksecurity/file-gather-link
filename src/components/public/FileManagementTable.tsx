@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { HelpCircle, Loader2, MoveIcon, Trash2 } from "lucide-react";
+import { HelpCircle, Loader2, Trash2 } from "lucide-react";
 import { 
   Table, 
   TableBody, 
@@ -80,6 +80,12 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
     return item ? item.title : "Unknown";
   };
   
+  // Determine if all files are selected
+  const allSelected = allFiles.length > 0 && selectedFiles.length === allFiles.length;
+  
+  // Determine if some but not all files are selected
+  const someSelected = selectedFiles.length > 0 && selectedFiles.length < allFiles.length;
+  
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -118,8 +124,8 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
               <TableHead className="w-[5%]">
                 <Checkbox 
                   onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                  checked={selectedFiles.length === allFiles.length && allFiles.length > 0}
-                  indeterminate={selectedFiles.length > 0 && selectedFiles.length < allFiles.length}
+                  checked={allSelected}
+                  className={someSelected ? "opacity-60" : ""}
                 />
               </TableHead>
               <TableHead className="w-[30%]">Filename</TableHead>
