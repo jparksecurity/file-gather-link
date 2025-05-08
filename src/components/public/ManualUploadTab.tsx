@@ -1,20 +1,30 @@
 
 import React from "react";
-import { ChecklistItem, ChecklistFile } from "@/types/checklist";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import FileDropzone from "@/components/FileDropzone";
+import { HelpCircle, Loader2 } from "lucide-react";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import StatusBadge from "@/components/StatusBadge";
-import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import FileDropzone from "@/components/FileDropzone";
+import { ChecklistItem } from "@/types/checklist";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ManualUploadTabProps {
   items: ChecklistItem[];
   getItemStatus: (itemId: string) => 'missing' | 'uploaded' | 'unclassified';
   isItemHasFile: (itemId: string) => boolean;
   isItemUploading: (itemId: string) => boolean;
-  handleFileUpload: (file: File, itemId: string) => void;
-  getItemFile?: (itemId: string) => ChecklistFile | null;
-  onDeleteFile: (file: ChecklistFile) => void;
+  handleFileUpload: (file: File, itemId?: string) => void;
 }
 
 const ManualUploadTab: React.FC<ManualUploadTabProps> = ({
@@ -23,68 +33,74 @@ const ManualUploadTab: React.FC<ManualUploadTabProps> = ({
   isItemHasFile,
   isItemUploading,
   handleFileUpload,
-  getItemFile,
-  onDeleteFile
 }) => {
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-muted-foreground mb-4">
-        Drag and drop specific documents into each requirement box.
-      </p>
-      
-      {items.map((item) => {
-        const status = getItemStatus(item.id);
-        const hasFile = isItemHasFile(item.id);
-        const isUploading = isItemUploading(item.id);
-        const file = getItemFile && getItemFile(item.id);
-        
-        return (
-          <Card key={item.id} className={`${status === 'uploaded' ? 'border-green-200' : ''}`}>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-center">
-                <CardTitle>{item.title}</CardTitle>
-                <div className="flex items-center space-x-2">
-                  <StatusBadge status={status} />
-                  {hasFile && file && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => onDeleteFile(file)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Manual Upload to Specific Requirements</h2>
+      <div className="space-y-4 mb-8">
+        {items.map((item) => {
+          const status = getItemStatus(item.id);
+          const hasFile = isItemHasFile(item.id);
+          const isUploading = isItemUploading(item.id);
+          
+          return (
+            <Card key={item.id} className={status === 'uploaded' ? 'border-green-200' : ''}>
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg">{item.title}</CardTitle>
+                  {isUploading ? (
+                    <div className="flex items-center">
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin text-amber-500" />
+                      <span className="text-sm text-amber-500">Uploading...</span>
+                    </div>
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <StatusBadge status={status} />
+                            {status === 'unclassified' && (
+                              <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        {status === 'unclassified' && (
+                          <TooltipContent>
+                            <p>AI couldn't classify this document with confidence</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </div>
-              </div>
-              {item.description && (
-                <CardDescription>{item.description}</CardDescription>
-              )}
-            </CardHeader>
-            <CardContent>
-              {hasFile ? (
-                <div className="bg-slate-50 p-4 rounded-md">
-                  <p className="text-sm font-medium">
-                    {file ? file.filename : "Document uploaded"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {file ? new Date(file.uploaded_at).toLocaleString() : ""}
-                  </p>
-                </div>
-              ) : (
-                <div className="h-32">
-                  <FileDropzone
-                    onFileAccepted={(file) => handleFileUpload(file, item.id)}
-                    disabled={isUploading || hasFile}
+                {item.description && (
+                  <CardDescription>{item.description}</CardDescription>
+                )}
+              </CardHeader>
+              <CardContent>
+                {isUploading ? (
+                  <div className="border border-dashed rounded-md p-4 h-24">
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="flex items-center mb-2">
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <span className="text-sm font-medium">Processing...</span>
+                      </div>
+                      <Progress value={undefined} className="h-1 w-2/3" />
+                    </div>
+                  </div>
+                ) : (
+                  <FileDropzone 
+                    onFileAccepted={(file) => handleFileUpload(file, item.id)} 
                     itemId={item.id}
-                    className="h-full w-full flex items-center justify-center border-2 border-dashed rounded-md"
+                    disabled={hasFile}
+                    className="border border-dashed rounded-md p-4 h-24"
                   />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 };
