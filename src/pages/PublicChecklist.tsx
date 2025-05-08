@@ -237,7 +237,7 @@ const PublicChecklist = () => {
               </div>
               
               {unclassifiedFiles.length > 0 && (
-                <div className="mt-8">
+                <div className="mt-8 mb-12">
                   <h3 className="text-lg font-medium mb-3 flex items-center">
                     <span className="text-amber-600 mr-1">●</span> Unclassified Files
                     <TooltipProvider>
