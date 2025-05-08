@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { 
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import StatusBadge from "@/components/StatusBadge";
 import { toast } from "sonner";
-import { FileCheck, AlertCircle, Download, Copy, RefreshCw, HelpCircle } from "lucide-react";
+import { FileCheck, AlertCircle, Download, Copy, HelpCircle, FilesIcon } from "lucide-react";
 import { getChecklist, getDownloadUrl } from "@/services/checklistService";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -30,7 +31,7 @@ const ManagerChecklist = () => {
   const navigate = useNavigate();
   const adminKey = searchParams.get('key');
   
-  const { data: checklist, isLoading, error, refetch } = useQuery({
+  const { data: checklist, isLoading, error } = useQuery({
     queryKey: ['checklist', slug, adminKey],
     queryFn: () => getChecklist(slug!, adminKey || undefined),
     retry: 1,
@@ -100,6 +101,39 @@ const ManagerChecklist = () => {
     }
   };
 
+  const downloadAllFiles = async () => {
+    if (!checklist?.files?.length) {
+      toast.info("No files to download");
+      return;
+    }
+
+    toast.info("Preparing all files for download...");
+    
+    try {
+      // Download each file with a small delay to prevent browser overload
+      const files = [...(checklist.files || [])];
+      
+      // Create a counter for the download progress
+      let downloadedCount = 0;
+      const totalFiles = files.length;
+      
+      for (const file of files) {
+        await handleDownload(file);
+        downloadedCount++;
+        
+        // Add a small delay between downloads to prevent overwhelming the browser
+        if (downloadedCount < totalFiles) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+      
+      toast.success(`Downloaded all ${files.length} files`);
+    } catch (error) {
+      console.error("Error downloading all files:", error);
+      toast.error("Failed to download all files. Please try individually.");
+    }
+  };
+
   const copyPublicUrl = () => {
     // Use the stored public_url from the database
     const fullUrl = `${window.location.origin}${checklist?.public_url}`;
@@ -112,11 +146,6 @@ const ManagerChecklist = () => {
     const fullUrl = `${window.location.origin}${checklist?.manager_url}`;
     navigator.clipboard.writeText(fullUrl);
     toast.success("Manager URL copied to clipboard");
-  };
-
-  const refreshData = () => {
-    refetch();
-    toast.info("Refreshing data...");
   };
 
   // Function to get unclassified files
@@ -166,9 +195,6 @@ const ManagerChecklist = () => {
             <FileCheck className="size-6 text-primary" />
             <h1 className="text-xl font-bold">DocCollect</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={refreshData}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-          </Button>
         </div>
       </header>
 
@@ -213,7 +239,17 @@ const ManagerChecklist = () => {
             </CardFooter>
           </Card>
           
-          <h2 className="text-xl font-semibold mb-4">Document Checklist Status</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Document Checklist Status</h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={downloadAllFiles}
+              disabled={!checklist.files?.length}
+            >
+              <FilesIcon className="h-4 w-4 mr-1" /> Download All Files
+            </Button>
+          </div>
           
           <div className="space-y-6 mb-8">
             {checklist.items.map((item) => {
@@ -320,7 +356,6 @@ const ManagerChecklist = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <h3 className="font-medium text-blue-800">Manager Instructions</h3>
             <ul className="list-disc list-inside text-sm text-blue-700 mt-2">
-              <li>Click Refresh to see the latest uploads</li>
               <li>Files are auto-classified by AI but may need review</li>
               <li>This manager URL gives full access to all documents</li>
               <li>Store your manager URL securely - it can't be recovered</li>

@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { 
   Card, 
@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import { toast } from "sonner";
 import StatusBadge from "@/components/StatusBadge";
-import { FileCheck, AlertCircle, HelpCircle } from "lucide-react";
+import { FileCheck, AlertCircle, HelpCircle, Loader2 } from "lucide-react";
 import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlobalFileDropzone from "@/components/GlobalFileDropzone";
@@ -24,10 +24,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, string>>({});
 
   const { data: checklist, isLoading, error } = useQuery({
     queryKey: ['checklist', slug],
@@ -36,7 +39,21 @@ const PublicChecklist = () => {
   });
 
   const uploadFileMutation = useMutation({
-    mutationFn: ({ file, itemId }: { file: File, itemId?: string }) => uploadFile(file, slug!, itemId),
+    mutationFn: ({ file, itemId }: { file: File, itemId?: string }) => {
+      // Add file to the uploading state with a status
+      const fileId = `${file.name}-${Date.now()}`;
+      setUploadingFiles(prev => ({ ...prev, [fileId]: itemId || 'global' }));
+      
+      return uploadFile(file, slug!, itemId)
+        .finally(() => {
+          // Remove from uploading state when done (regardless of success/failure)
+          setUploadingFiles(prev => {
+            const newState = { ...prev };
+            delete newState[fileId];
+            return newState;
+          });
+        });
+    },
     onSuccess: (newFile: ChecklistFile) => {
       toast.success(newFile.status === 'unclassified' 
         ? "File uploaded but couldn't be classified automatically" 
@@ -88,6 +105,22 @@ const PublicChecklist = () => {
     return checklist.files.some(file => file.item_id === itemId);
   };
 
+  // Function to get unclassified files
+  const getUnclassifiedFiles = () => {
+    if (!checklist?.files) return [];
+    return checklist.files.filter(file => file.status === 'unclassified' && file.item_id === null);
+  };
+
+  // Check if a specific item is currently uploading
+  const isItemUploading = (itemId: string) => {
+    return Object.values(uploadingFiles).includes(itemId);
+  };
+
+  // Check if there's a global upload in progress
+  const isGlobalUploading = () => {
+    return Object.values(uploadingFiles).includes('global');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -113,6 +146,8 @@ const PublicChecklist = () => {
       </div>
     );
   }
+
+  const unclassifiedFiles = getUnclassifiedFiles();
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -144,7 +179,24 @@ const PublicChecklist = () => {
                 <p className="mb-4 text-muted-foreground">
                   Drop any document here and our AI will analyze and classify it to the correct requirement.
                 </p>
-                <GlobalFileDropzone onFileAccepted={(file) => handleFileUpload(file)} />
+                {isGlobalUploading() ? (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Processing your document...</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          AI is analyzing and classifying your file. This may take a few moments.
+                        </p>
+                        <div className="w-full max-w-md">
+                          <Progress value={75} className="h-2" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <GlobalFileDropzone onFileAccepted={(file) => handleFileUpload(file)} />
+                )}
               </div>
               
               <div className="mt-8">
@@ -183,6 +235,39 @@ const PublicChecklist = () => {
                   })}
                 </div>
               </div>
+              
+              {unclassifiedFiles.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium mb-3 flex items-center">
+                    <span className="text-amber-600 mr-1">●</span> Unclassified Files
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>AI couldn't match these documents to any specific requirement</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </h3>
+                  <div className="space-y-3">
+                    {unclassifiedFiles.map((file) => (
+                      <div key={file.id} className="flex justify-between items-center p-3 border border-amber-200 rounded-lg bg-amber-50">
+                        <div>
+                          <p className="font-medium">{file.filename}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Uploaded {new Date(file.uploaded_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <StatusBadge status="unclassified" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="items">
@@ -191,41 +276,61 @@ const PublicChecklist = () => {
                 {checklist.items.map((item) => {
                   const status = getItemStatus(item.id);
                   const hasFile = isItemHasFile(item.id);
+                  const isUploading = isItemUploading(item.id);
                   
                   return (
                     <Card key={item.id} className={status === 'uploaded' ? 'border-green-200' : ''}>
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
                           <CardTitle className="text-lg">{item.title}</CardTitle>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span>
-                                  <StatusBadge status={status} />
-                                  {status === 'unclassified' && (
-                                    <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
-                                  )}
-                                </span>
-                              </TooltipTrigger>
-                              {status === 'unclassified' && (
-                                <TooltipContent>
-                                  <p>AI couldn't classify this document with confidence</p>
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
+                          {isUploading ? (
+                            <div className="flex items-center">
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin text-amber-500" />
+                              <span className="text-sm text-amber-500">Uploading...</span>
+                            </div>
+                          ) : (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <StatusBadge status={status} />
+                                    {status === 'unclassified' && (
+                                      <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                                    )}
+                                  </span>
+                                </TooltipTrigger>
+                                {status === 'unclassified' && (
+                                  <TooltipContent>
+                                    <p>AI couldn't classify this document with confidence</p>
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </div>
                         {item.description && (
                           <CardDescription>{item.description}</CardDescription>
                         )}
                       </CardHeader>
                       <CardContent>
-                        <FileDropzone 
-                          onFileAccepted={(file) => handleFileUpload(file, item.id)} 
-                          itemId={item.id}
-                          disabled={hasFile}
-                          className="border border-dashed rounded-md p-4 h-24"
-                        />
+                        {isUploading ? (
+                          <div className="border border-dashed rounded-md p-4 h-24">
+                            <div className="flex flex-col items-center justify-center h-full">
+                              <div className="flex items-center mb-2">
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                <span className="text-sm font-medium">Processing...</span>
+                              </div>
+                              <Progress value={undefined} className="h-1 w-2/3" />
+                            </div>
+                          </div>
+                        ) : (
+                          <FileDropzone 
+                            onFileAccepted={(file) => handleFileUpload(file, item.id)} 
+                            itemId={item.id}
+                            disabled={hasFile}
+                            className="border border-dashed rounded-md p-4 h-24"
+                          />
+                        )}
                       </CardContent>
                     </Card>
                   );
@@ -241,6 +346,7 @@ const PublicChecklist = () => {
               <li>Only PDF files are accepted</li>
               <li>Each requirement can only have one file</li>
               <li>The AI will try to match your document to the correct requirement</li>
+              <li>If AI can't classify your document, it will appear in the "Unclassified Files" section</li>
             </ul>
           </div>
         </div>
