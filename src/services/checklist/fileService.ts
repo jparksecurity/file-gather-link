@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { ChecklistFile, ChecklistItem } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -215,6 +214,43 @@ export async function getDownloadUrl(filePath: string, itemTitle?: string, filen
     };
   } catch (error) {
     console.error("Error generating download URL:", error);
+    throw error;
+  }
+}
+
+export async function deleteFile(fileId: string, checklistSlug: string): Promise<void> {
+  try {
+    // Get the file details first
+    const { data: fileData, error: fileError } = await supabase
+      .from('checklist_files')
+      .select('file_path')
+      .eq('id', fileId)
+      .single();
+    
+    if (fileError) throw fileError;
+    
+    if (!fileData || !fileData.file_path) {
+      throw new Error("File not found");
+    }
+    
+    // Delete the file from storage
+    const { error: storageError } = await supabase
+      .storage
+      .from('doccollect')
+      .remove([fileData.file_path]);
+    
+    if (storageError) throw storageError;
+    
+    // Delete the file record from the database
+    const { error: deleteError } = await supabase
+      .from('checklist_files')
+      .delete()
+      .eq('id', fileId);
+    
+    if (deleteError) throw deleteError;
+    
+  } catch (error) {
+    console.error("Error deleting file:", error);
     throw error;
   }
 }

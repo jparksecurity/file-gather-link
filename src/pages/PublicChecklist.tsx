@@ -1,13 +1,13 @@
-
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
-import { getChecklist, uploadFile } from "@/services/checklistService";
+import { getChecklist, uploadFile, deleteFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DeleteFileDialog from "@/components/DeleteFileDialog";
 
 // Import new components
 import Header from "@/components/public/Header";
@@ -19,6 +19,8 @@ const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, string>>({});
+  const [fileToDelete, setFileToDelete] = useState<ChecklistFile | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const { data: checklist, isLoading, error } = useQuery({
     queryKey: ['checklist', slug],
@@ -67,6 +69,27 @@ const PublicChecklist = () => {
     }
   });
 
+  const deleteFileMutation = useMutation({
+    mutationFn: (file: ChecklistFile) => {
+      return deleteFile(file.id, slug!);
+    },
+    onSuccess: () => {
+      toast.success("File deleted successfully");
+      
+      // Close the dialog
+      setIsDeleteDialogOpen(false);
+      setFileToDelete(null);
+      
+      // Refetch the checklist data to update the UI
+      queryClient.invalidateQueries({ queryKey: ['checklist', slug] });
+    },
+    onError: (error: any) => {
+      console.error("Error deleting file:", error);
+      toast.error(`Failed to delete file: ${error.message || "Please try again"}`);
+      setIsDeleteDialogOpen(false);
+    }
+  });
+
   const handleFileUpload = async (file: File, itemId?: string) => {
     const message = itemId 
       ? "Uploading file for specific requirement..." 
@@ -74,6 +97,17 @@ const PublicChecklist = () => {
     
     toast.info(message);
     uploadFileMutation.mutate({ file, itemId });
+  };
+
+  const handleDeleteFile = (file: ChecklistFile) => {
+    setFileToDelete(file);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteFile = () => {
+    if (fileToDelete) {
+      deleteFileMutation.mutate(fileToDelete);
+    }
   };
 
   const getItemStatus = (itemId: string) => {
@@ -107,6 +141,12 @@ const PublicChecklist = () => {
   // Check if there's a global upload in progress
   const isGlobalUploading = () => {
     return Object.values(uploadingFiles).includes('global');
+  };
+
+  // Find the file associated with an item ID
+  const getItemFile = (itemId: string): ChecklistFile | null => {
+    if (!checklist?.files?.length) return null;
+    return checklist.files.find(file => file.item_id === itemId) || null;
   };
 
   if (isLoading) {
@@ -161,6 +201,7 @@ const PublicChecklist = () => {
                 handleFileUpload={handleFileUpload}
                 isGlobalUploading={isGlobalUploading()}
                 unclassifiedFiles={unclassifiedFiles}
+                onDeleteFile={handleDeleteFile}
               />
             </TabsContent>
             
@@ -171,11 +212,21 @@ const PublicChecklist = () => {
                 isItemHasFile={isItemHasFile}
                 isItemUploading={isItemUploading}
                 handleFileUpload={handleFileUpload}
+                getItemFile={getItemFile}
+                onDeleteFile={handleDeleteFile}
               />
             </TabsContent>
           </Tabs>
           
           <ImportantNotes />
+
+          <DeleteFileDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+            file={fileToDelete}
+            onConfirm={confirmDeleteFile}
+            isDeleting={deleteFileMutation.isPending}
+          />
         </div>
       </main>
     </div>
