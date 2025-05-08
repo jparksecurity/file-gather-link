@@ -8,64 +8,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+// Handle CORS preflight requests
+function handleCors(req: Request) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
+  return null
+}
 
+// Parse and validate request body
+async function parseRequestBody(req: Request) {
   try {
-    console.log("classify-document function called");
-    
-    // Parse request body and validate input
-    let requestBody;
-    try {
-      requestBody = await req.json();
-      console.log("Request body received:", JSON.stringify(requestBody));
-    } catch (jsonError) {
-      console.error("Error parsing request JSON:", jsonError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
+    const requestBody = await req.json();
+    console.log("Request body received:", JSON.stringify(requestBody));
     
     const { fileUrl, items } = requestBody;
 
     if (!fileUrl) {
-      console.error("Missing fileUrl parameter");
-      return new Response(
-        JSON.stringify({ error: 'Missing fileUrl parameter' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+      throw new Error('Missing fileUrl parameter');
     }
     
     if (!items || !Array.isArray(items) || items.length === 0) {
-      console.error("Missing or invalid items parameter");
-      return new Response(
-        JSON.stringify({ error: 'Missing or invalid items parameter' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+      throw new Error('Missing or invalid items parameter');
     }
+    
+    return { fileUrl, items };
+  } catch (error) {
+    console.error("Error parsing request JSON:", error);
+    throw error;
+  }
+}
 
-    // Download the PDF
-    console.log("Downloading PDF from:", fileUrl);
-    let response;
-    try {
-      response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
-      }
-    } catch (fetchError) {
-      console.error("Error fetching PDF:", fetchError);
-      return new Response(
-        JSON.stringify({ 
-          status: 'unclassified', 
-          item_id: null,
-          error: `Error fetching PDF: ${fetchError.message}` 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+// Download and process PDF
+async function downloadPDF(fileUrl: string) {
+  console.log("Downloading PDF from:", fileUrl);
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
     }
     
     // Get PDF as array buffer and convert to base64
@@ -82,122 +62,138 @@ serve(async (req) => {
     const filename = filePathParts[filePathParts.length - 1];
     console.log("PDF filename for classification:", filename);
     
-    // Initialize OpenAI client
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiApiKey) {
-      console.error("OpenAI API key is missing");
-      return new Response(
-        JSON.stringify({ 
-          status: 'unclassified', 
-          item_id: null,
-          error: 'OpenAI API key is not configured'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
+    return { base64Pdf, filename };
+  } catch (error) {
+    console.error("Error fetching PDF:", error);
+    throw error;
+  }
+}
+
+// Initialize OpenAI client
+function initializeOpenAI() {
+  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openaiApiKey) {
+    console.error("OpenAI API key is missing");
+    throw new Error('OpenAI API key is not configured');
+  }
+  
+  return new OpenAI({
+    apiKey: openaiApiKey
+  });
+}
+
+// Classify document using OpenAI
+async function classifyDocument(openai: OpenAI, base64Pdf: string, filename: string, items: any[]) {
+  try {
+    // Create the text description of the categories
+    const itemsText = items.map(item => 
+      `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`
+    ).join('\n\n');
     
-    const openai = new OpenAI({
-      apiKey: openaiApiKey
+    console.log("Using PDF content for classification");
+    
+    // Call OpenAI with the PDF content and proper formatting
+    const chatCompletion = await openai.chat.completions.create({
+      model: "gpt-4.1-nano", // Updated to gpt-4.1-nano per the PRD
+      messages: [
+        {
+          role: "system",
+          content: "You are an AI document classifier. You will receive a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to based on its content. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Please classify this PDF document into one of these categories:\n\n${itemsText}\n\nWhich category does this document most likely belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
+            },
+            {
+              type: "file",
+              file: {
+                filename: filename,
+                file_data: `data:application/pdf;base64,${base64Pdf}`
+              }
+            }
+          ]
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 50
     });
     
-    // Prepare the items for classification
-    const itemDescriptions = items.map(item => ({
-      id: item.id,
-      title: item.title,
-      description: item.description || ''
-    }));
+    console.log("OpenAI response:", JSON.stringify(chatCompletion));
     
-    console.log("Items for classification:", JSON.stringify(itemDescriptions));
+    return chatCompletion.choices[0].message.content.trim();
+  } catch (error) {
+    console.error("Error calling OpenAI API:", error);
+    throw error;
+  }
+}
+
+// Validate and format classification result
+function processClassificationResult(matchedItemId: string, items: any[]) {
+  console.log("Raw matched item ID:", matchedItemId);
+  
+  // Validate the response
+  const isValidItemId = items.some(item => item.id === matchedItemId);
+  
+  if (!isValidItemId && matchedItemId !== 'unclassified') {
+    console.log(`Invalid item ID returned: ${matchedItemId}, marking as unclassified`);
+    return { status: 'unclassified', item_id: null };
+  }
+  
+  const status = matchedItemId === 'unclassified' ? 'unclassified' : 'uploaded';
+  const finalItemId = matchedItemId === 'unclassified' ? null : matchedItemId;
+  
+  console.log(`Classification complete. Status: ${status}, Item ID: ${finalItemId}`);
+  
+  return { status, item_id: finalItemId };
+}
+
+// Create error response
+function createErrorResponse(message: string, status = 500) {
+  return new Response(
+    JSON.stringify({ 
+      status: 'unclassified', 
+      item_id: null,
+      error: message 
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status }
+  );
+}
+
+// Main handler function
+serve(async (req) => {
+  // Handle CORS preflight requests
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  try {
+    console.log("classify-document function called");
     
-    try {
-      // Create the text description of the categories
-      const itemsText = itemDescriptions.map(item => 
-        `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`
-      ).join('\n\n');
-      
-      console.log("Using PDF content for classification");
-      
-      // Call OpenAI with the PDF content and proper formatting
-      const chatCompletion = await openai.chat.completions.create({
-        model: "gpt-4.1-nano", // Updated to gpt-4.1-nano per the PRD
-        messages: [
-          {
-            role: "system",
-            content: "You are an AI document classifier. You will receive a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to based on its content. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Please classify this PDF document into one of these categories:\n\n${itemsText}\n\nWhich category does this document most likely belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
-              },
-              {
-                type: "file",
-                file: {
-                  filename: filename,
-                  file_data: `data:application/pdf;base64,${base64Pdf}`
-                }
-              }
-            ]
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 50
-      });
-      
-      console.log("OpenAI response:", JSON.stringify(chatCompletion));
-      
-      const matchedItemId = chatCompletion.choices[0].message.content.trim();
-      console.log("Raw matched item ID:", matchedItemId);
-      
-      // Validate the response
-      const isValidItemId = itemDescriptions.some(item => item.id === matchedItemId);
-      
-      if (!isValidItemId && matchedItemId !== 'unclassified') {
-        console.log(`Invalid item ID returned: ${matchedItemId}, marking as unclassified`);
-        return new Response(
-          JSON.stringify({ 
-            status: 'unclassified', 
-            item_id: null 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      const status = matchedItemId === 'unclassified' ? 'unclassified' : 'uploaded';
-      const finalItemId = matchedItemId === 'unclassified' ? null : matchedItemId;
-      
-      console.log(`Classification complete. Status: ${status}, Item ID: ${finalItemId}`);
-      
-      return new Response(
-        JSON.stringify({ 
-          status, 
-          item_id: finalItemId 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } catch (openaiError) {
-      console.error("Error calling OpenAI API:", openaiError);
-      return new Response(
-        JSON.stringify({ 
-          status: 'unclassified', 
-          item_id: null,
-          error: `Error calling OpenAI API: ${openaiError.message}` 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
+    // Parse and validate request
+    const { fileUrl, items } = await parseRequestBody(req);
+    
+    // Download and process PDF
+    const { base64Pdf, filename } = await downloadPDF(fileUrl);
+    
+    // Initialize OpenAI
+    const openai = initializeOpenAI();
+    
+    // Classify document
+    const matchedItemId = await classifyDocument(openai, base64Pdf, filename, items);
+    
+    // Process and validate result
+    const result = processClassificationResult(matchedItemId, items);
+    
+    // Return classification result
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
   } catch (error) {
     console.error("Error in classify-document function:", error);
-    
-    return new Response(
-      JSON.stringify({ 
-        status: 'unclassified', 
-        item_id: null,
-        error: `Error during classification: ${error.message}` 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return createErrorResponse(`Error during classification: ${error.message}`);
   }
 })
