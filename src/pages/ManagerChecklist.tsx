@@ -318,15 +318,20 @@ const ManagerChecklist = () => {
                 {unclassifiedFiles.map(file => (
                   <Card key={file.id}>
                     <CardHeader>
-                      <div className="flex justify-between">
-                        <CardTitle className="text-lg">{file.filename}</CardTitle>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <CardTitle className="text-lg">{file.filename}</CardTitle>
+                          <CardDescription>
+                            Uploaded {new Date(file.uploaded_at).toLocaleString()}
+                          </CardDescription>
+                        </div>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span>
+                              <div className="flex items-center">
                                 <StatusBadge status="unclassified" />
-                                <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
-                              </span>
+                                <HelpCircle className="ml-1 h-4 w-4 text-amber-500" />
+                              </div>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>AI couldn't match this document to any requirement</p>
@@ -334,19 +339,23 @@ const ManagerChecklist = () => {
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                      <CardDescription>
-                        Uploaded {new Date(file.uploaded_at).toLocaleString()}
-                      </CardDescription>
                     </CardHeader>
-                    <CardFooter className="bg-muted/50">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleDownload(file)}
-                      >
-                        <Download className="h-4 w-4 mr-1" /> Download
-                      </Button>
-                    </CardFooter>
+                    <CardContent className="pt-0">
+                      <div className="flex items-center justify-between bg-slate-50 p-3 rounded-md">
+                        <div className="flex-1">
+                          <p className="text-sm text-muted-foreground">
+                            This file couldn't be automatically classified by our AI
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDownload(file)}
+                        >
+                          <Download className="h-4 w-4 mr-1" /> Download
+                        </Button>
+                      </div>
+                    </CardContent>
                   </Card>
                 ))}
               </div>
