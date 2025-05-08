@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { 
@@ -67,6 +66,7 @@ const ManagerChecklist = () => {
       let itemTitle: string | undefined;
       
       if (file.item_id) {
+        // Find the item associated with this file to get its title
         const associatedItem = checklist?.items.find(item => item.id === file.item_id);
         if (associatedItem) {
           itemTitle = associatedItem.title;
@@ -86,18 +86,16 @@ const ManagerChecklist = () => {
       // Create a temporary anchor element
       const link = document.createElement('a');
       link.href = signedUrl;
+      
       // Use the combined filename if available
       if (downloadFilename) {
         link.download = downloadFilename;
       } else {
         link.download = file.filename;
       }
+      
       document.body.appendChild(link);
-
-      // Programmatically click it to start the download
       link.click();
-
-      // Clean up
       document.body.removeChild(link);
 
       toast.success(`Downloading ${downloadFilename || file.filename}`);

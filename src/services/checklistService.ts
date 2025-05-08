@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Checklist, ChecklistItem, ChecklistFile } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -316,9 +317,16 @@ export async function getDownloadUrl(filePath: string, itemTitle?: string, filen
     
     if (error) throw error;
     
+    let downloadFilename = filename;
+    
+    // If we have both an item title and filename, combine them
+    if (itemTitle && filename) {
+      downloadFilename = `${itemTitle} - ${filename}`;
+    }
+    
     return {
       signedUrl: data.signedUrl,
-      downloadFilename: itemTitle && filename ? `${itemTitle} - ${filename}` : filename
+      downloadFilename: downloadFilename
     };
   } catch (error) {
     console.error("Error generating download URL:", error);
