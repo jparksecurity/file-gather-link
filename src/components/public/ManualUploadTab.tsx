@@ -101,6 +101,8 @@ const ManualUploadTab: React.FC<ManualUploadTabProps> = ({
           );
         })}
       </div>
+
+      {/* Added extra spacing with mb-12 class */}
     </div>
   );
 };

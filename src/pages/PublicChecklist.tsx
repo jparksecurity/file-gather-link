@@ -175,7 +175,10 @@ const PublicChecklist = () => {
             </TabsContent>
           </Tabs>
           
-          <ImportantNotes />
+          {/* Added extra spacing with mt-12 class before the ImportantNotes component */}
+          <div className="mt-12">
+            <ImportantNotes />
+          </div>
         </div>
       </main>
     </div>

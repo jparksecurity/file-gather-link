@@ -1,4 +1,3 @@
-
 import React from "react";
 import { HelpCircle, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -124,6 +123,8 @@ const AIClassificationTab: React.FC<AIClassificationTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Added extra spacing with mt-12 class */}
     </div>
   );
 };
