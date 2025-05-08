@@ -119,7 +119,7 @@ serve(async (req) => {
       
       // Call OpenAI with the PDF content and proper formatting
       const chatCompletion = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // Using gpt-4o-mini as closest to gpt-4.1-nano
+        model: "gpt-4.1-nano", // Updated to gpt-4.1-nano per the PRD
         messages: [
           {
             role: "system",
