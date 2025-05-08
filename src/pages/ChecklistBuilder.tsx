@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
@@ -19,8 +20,8 @@ const ChecklistBuilder = () => {
   const [isPublishing, setIsPublishing] = useState(false);
 
   const addItem = () => {
-    if (items.length >= 10) {
-      toast.error("You can add a maximum of 10 items");
+    if (items.length >= 100) {
+      toast.error("You can add a maximum of 100 items");
       return;
     }
     setItems([...items, { title: "", description: "" }]);
@@ -101,7 +102,7 @@ const ChecklistBuilder = () => {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">Create Your Document Checklist</h1>
           <p className="mb-8 text-muted-foreground">
-            Add up to 10 document items you want to collect. Once published, you'll receive unique links to share.
+            Add up to 100 document items you want to collect. Once published, you'll receive unique links to share.
           </p>
           
           <div className="space-y-4 mb-8">
@@ -161,12 +162,12 @@ const ChecklistBuilder = () => {
             <Button
               variant="outline"
               onClick={addItem}
-              disabled={items.length >= 10}
+              disabled={items.length >= 100}
             >
               <Plus className="size-4 mr-2" /> Add Item
             </Button>
             <p className="text-sm text-muted-foreground self-center">
-              {items.length}/10 items
+              {items.length}/100 items
             </p>
           </div>
           
