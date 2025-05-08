@@ -30,7 +30,7 @@ const PublicChecklist = () => {
   const uploadFileMutation = useMutation({
     mutationFn: ({ file, itemId }: { file: File, itemId: string }) => 
       uploadFile(file, slug!, itemId),
-    onSuccess: (newFile) => {
+    onSuccess: (newFile: ChecklistFile) => {
       toast.success("File uploaded successfully!");
       
       // Update the local cache with the new file

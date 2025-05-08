@@ -78,13 +78,19 @@ export async function getChecklist(slug: string, adminKey?: string) {
     
     if (filesError) throw filesError;
     
+    // Ensure filesData has the correct status type
+    const typedFilesData: ChecklistFile[] = filesData.map(file => ({
+      ...file,
+      status: file.status as "uploaded" | "unclassified"
+    }));
+    
     // Construct complete checklist
     const checklist: Checklist = {
       id: checklistData.id,
       slug: checklistData.slug,
       created_at: checklistData.created_at,
       items: itemsData,
-      files: filesData,
+      files: typedFilesData,
     };
     
     // Only include admin key if it was provided and valid
@@ -125,7 +131,7 @@ export async function uploadFile(file: File, checklistSlug: string, itemId: stri
     // TODO: In a real implementation, we would call an Edge Function here
     // to classify the file using AI, but for now we'll simulate it
     // with a simple random classification
-    const status = Math.random() > 0.3 ? 'uploaded' : 'unclassified';
+    const status = Math.random() > 0.3 ? 'uploaded' as const : 'unclassified' as const;
     
     // Insert file record
     const { data: fileData, error: fileError } = await supabase
@@ -142,7 +148,10 @@ export async function uploadFile(file: File, checklistSlug: string, itemId: stri
     
     if (fileError) throw fileError;
     
-    return fileData;
+    return {
+      ...fileData,
+      status: fileData.status as "uploaded" | "unclassified"
+    } as ChecklistFile;
   } catch (error) {
     console.error("Error uploading file:", error);
     throw error;
