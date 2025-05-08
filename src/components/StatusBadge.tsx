@@ -16,17 +16,17 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
       case 'missing':
         return {
           label: 'Missing',
-          className: 'bg-status-missing text-white'
+          className: 'bg-gray-400 text-white'
         };
       case 'uploaded':
         return {
           label: 'Uploaded',
-          className: 'bg-status-uploaded text-white'
+          className: 'bg-green-500 text-white'
         };
       case 'unclassified':
         return {
           label: 'Unclassified',
-          className: 'bg-status-unclassified text-white'
+          className: 'bg-amber-500 text-white'
         };
       default:
         return {

@@ -15,7 +15,7 @@ export type Database = {
           file_path: string
           filename: string
           id: string
-          item_id: string
+          item_id: string | null
           status: string
           uploaded_at: string
         }
@@ -24,7 +24,7 @@ export type Database = {
           file_path: string
           filename: string
           id?: string
-          item_id: string
+          item_id?: string | null
           status: string
           uploaded_at?: string
         }
@@ -33,7 +33,7 @@ export type Database = {
           file_path?: string
           filename?: string
           id?: string
-          item_id?: string
+          item_id?: string | null
           status?: string
           uploaded_at?: string
         }

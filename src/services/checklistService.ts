@@ -113,7 +113,7 @@ export async function getChecklist(slug: string, adminKey?: string) {
 
 export async function uploadFile(file: File, checklistSlug: string) {
   try {
-    // Get checklist ID from slug
+    // Get checklist ID and items from slug
     const { data: checklistData, error: checklistError } = await supabase
       .from('checklists')
       .select('id, items:checklist_items(id, title, description)')
@@ -137,27 +137,22 @@ export async function uploadFile(file: File, checklistSlug: string) {
     
     if (storageError) throw storageError;
     
-    // In a real implementation, we would extract text from the PDF here
-    // and use OpenAI's API to classify it based on checklist items
-    
-    // For now, we'll simulate AI classification with a simple algorithm
-    // In a complete implementation, this would be replaced with an Edge Function call
-    const items = checklistData.items as ChecklistItem[];
-    
     // Check if any items already have files attached
     const { data: existingFiles, error: existingFilesError } = await supabase
       .from('checklist_files')
       .select('item_id')
-      .eq('checklist_id', checklistData.id);
+      .eq('checklist_id', checklistData.id)
+      .not('item_id', 'is', null);
       
     if (existingFilesError) throw existingFilesError;
     
     // Filter out items that already have files
+    const items = checklistData.items as ChecklistItem[];
     const availableItems = items.filter(item => 
       !existingFiles.some(file => file.item_id === item.id)
     );
     
-    // If no items are available, mark as unclassified
+    // If no items are available for classification, mark as unclassified
     if (availableItems.length === 0) {
       // Insert file record marked as unclassified
       const { data: fileData, error: fileError } = await supabase
@@ -180,76 +175,33 @@ export async function uploadFile(file: File, checklistSlug: string) {
       } as ChecklistFile;
     }
     
-    // Simulate AI classification by using a simple heuristic:
-    // 1. If filename contains any keywords from item titles/descriptions, match to that item
-    // 2. Otherwise, randomly select an item with 70% chance, or mark as unclassified
+    // Get the public URL for the file to send to the AI
+    const { data: publicUrlData } = await supabase
+      .storage
+      .from('doccollect')
+      .getPublicUrl(filePath);
     
-    const fileName = file.name.toLowerCase();
-    
-    // Try to find a keyword match
-    const matchedItem = availableItems.find(item => {
-      const titleWords = item.title.toLowerCase().split(/\s+/);
-      const descWords = item.description ? item.description.toLowerCase().split(/\s+/) : [];
-      const allWords = [...titleWords, ...descWords];
-      
-      return allWords.some(word => 
-        word.length > 3 && fileName.includes(word)
-      );
+    // Call our edge function to classify the document
+    const classifyResponse = await fetch(`${window.location.origin}/.netlify/functions/supabase-classify-document`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileUrl: publicUrlData.publicUrl,
+        items: availableItems
+      })
     });
     
-    if (matchedItem) {
-      // We found a match based on keywords
+    if (!classifyResponse.ok) {
+      console.error("Classification API error:", await classifyResponse.text());
+      
+      // Insert file as unclassified on API error
       const { data: fileData, error: fileError } = await supabase
         .from('checklist_files')
         .insert([{
           checklist_id: checklistData.id,
-          item_id: matchedItem.id,
-          filename: file.name,
-          file_path: filePath,
-          status: 'uploaded'
-        }])
-        .select('id, item_id, filename, status, uploaded_at, file_path')
-        .single();
-      
-      if (fileError) throw fileError;
-      
-      return {
-        ...fileData,
-        status: fileData.status as "uploaded" | "unclassified"
-      } as ChecklistFile;
-    }
-    
-    // No keyword match, decide randomly with 70% chance of assignment
-    if (Math.random() <= 0.7) {
-      // Randomly select an item
-      const randomIndex = Math.floor(Math.random() * availableItems.length);
-      const selectedItem = availableItems[randomIndex];
-      
-      const { data: fileData, error: fileError } = await supabase
-        .from('checklist_files')
-        .insert([{
-          checklist_id: checklistData.id,
-          item_id: selectedItem.id,
-          filename: file.name,
-          file_path: filePath,
-          status: 'uploaded'
-        }])
-        .select('id, item_id, filename, status, uploaded_at, file_path')
-        .single();
-      
-      if (fileError) throw fileError;
-      
-      return {
-        ...fileData,
-        status: fileData.status as "uploaded" | "unclassified"
-      } as ChecklistFile;
-    } else {
-      // Mark as unclassified
-      const { data: fileData, error: fileError } = await supabase
-        .from('checklist_files')
-        .insert([{
-          checklist_id: checklistData.id,
-          item_id: null, // No item assigned
+          item_id: null,
           filename: file.name,
           file_path: filePath,
           status: 'unclassified'
@@ -264,6 +216,31 @@ export async function uploadFile(file: File, checklistSlug: string) {
         status: fileData.status as "uploaded" | "unclassified"
       } as ChecklistFile;
     }
+    
+    // Process the AI response
+    const classificationResult = await classifyResponse.json();
+    const { status, item_id } = classificationResult;
+    
+    // Insert file record with the classification result
+    const { data: fileData, error: fileError } = await supabase
+      .from('checklist_files')
+      .insert([{
+        checklist_id: checklistData.id,
+        item_id: item_id, // This can be null for unclassified
+        filename: file.name,
+        file_path: filePath,
+        status: status
+      }])
+      .select('id, item_id, filename, status, uploaded_at, file_path')
+      .single();
+    
+    if (fileError) throw fileError;
+    
+    return {
+      ...fileData,
+      status: fileData.status as "uploaded" | "unclassified"
+    } as ChecklistFile;
+    
   } catch (error) {
     console.error("Error uploading file:", error);
     

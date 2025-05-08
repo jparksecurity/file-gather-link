@@ -1,0 +1,18 @@
+
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[functions]
+  external_node_modules = ["@supabase/supabase-js"]
+  
+[[redirects]]
+  from = "/.netlify/functions/supabase-classify-document"
+  to = "https://cxvewyrxnimxrartklqz.supabase.co/functions/v1/classify-document"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

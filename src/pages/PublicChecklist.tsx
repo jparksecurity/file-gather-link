@@ -12,10 +12,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import { toast } from "sonner";
 import StatusBadge from "@/components/StatusBadge";
-import { FileCheck, AlertCircle } from "lucide-react";
+import { FileCheck, AlertCircle, HelpCircle } from "lucide-react";
 import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlobalFileDropzone from "@/components/GlobalFileDropzone";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -127,7 +133,23 @@ const PublicChecklist = () => {
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{item.title}</CardTitle>
-                      <StatusBadge status={status} />
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <StatusBadge status={status} />
+                              {status === 'unclassified' && (
+                                <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                              )}
+                            </span>
+                          </TooltipTrigger>
+                          {status === 'unclassified' && (
+                            <TooltipContent>
+                              <p>AI couldn't classify this document with confidence</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                     {item.description && (
                       <CardDescription>{item.description}</CardDescription>

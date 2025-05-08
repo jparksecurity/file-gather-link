@@ -15,9 +15,15 @@ import { Badge } from "@/components/ui/badge";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import StatusBadge from "@/components/StatusBadge";
 import { toast } from "sonner";
-import { FileCheck, AlertCircle, Download, Copy, RefreshCw } from "lucide-react";
+import { FileCheck, AlertCircle, Download, Copy, RefreshCw, HelpCircle } from "lucide-react";
 import { getChecklist, getDownloadUrl } from "@/services/checklistService";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const ManagerChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -197,7 +203,23 @@ const ManagerChecklist = () => {
               return (
                 <Card key={item.id} className={`relative ${status === 'uploaded' ? 'border-green-200' : ''}`}>
                   <div className="absolute top-4 right-4">
-                    <StatusBadge status={status} />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <StatusBadge status={status} />
+                            {status === 'unclassified' && (
+                              <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        {status === 'unclassified' && (
+                          <TooltipContent>
+                            <p>AI couldn't classify this document with confidence</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                   <CardHeader>
                     <CardTitle>{item.title}</CardTitle>
@@ -242,7 +264,19 @@ const ManagerChecklist = () => {
                     <CardHeader>
                       <div className="flex justify-between">
                         <CardTitle className="text-lg">{file.filename}</CardTitle>
-                        <StatusBadge status="unclassified" />
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>
+                                <StatusBadge status="unclassified" />
+                                <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>AI couldn't match this document to any requirement</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                       <CardDescription>
                         Uploaded {new Date(file.uploaded_at).toLocaleString()}
