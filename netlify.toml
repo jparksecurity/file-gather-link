@@ -5,3 +5,8 @@
 
 [functions]
   external_node_modules = ["@supabase/supabase-js"]
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

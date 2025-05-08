@@ -68,7 +68,14 @@ serve(async (req) => {
       );
     }
     
+    // Get PDF as array buffer and convert to base64
     const pdfBytes = await response.arrayBuffer();
+    
+    // Convert PDF to base64 for OpenAI API
+    const base64Pdf = btoa(
+      new Uint8Array(pdfBytes)
+        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
     
     // Get filename for additional context
     const filePathParts = fileUrl.split('/');
@@ -103,24 +110,36 @@ serve(async (req) => {
     console.log("Items for classification:", JSON.stringify(itemDescriptions));
     
     try {
-      // Extract text-based prompt for classification
+      // Create the text description of the categories
       const itemsText = itemDescriptions.map(item => 
         `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`
       ).join('\n\n');
       
-      console.log("Using text-based approach for PDF classification");
+      console.log("Using PDF content for classification");
       
-      // Call OpenAI with a text-based approach
+      // Call OpenAI with the PDF content and proper formatting
       const chatCompletion = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // Using gpt-4o-mini as a replacement for gpt-4.1-nano
+        model: "gpt-4o-mini", // Using gpt-4o-mini as closest to gpt-4.1-nano
         messages: [
           {
             role: "system",
-            content: "You are an AI document classifier. You will receive information about a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
+            content: "You are an AI document classifier. You will receive a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to based on its content. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
           },
           {
             role: "user",
-            content: `I have a PDF document with the filename: ${filename}. Please classify it into one of these categories:\n\n${itemsText}\n\nWhich category does this document most likely belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
+            content: [
+              {
+                type: "text",
+                text: `Please classify this PDF document into one of these categories:\n\n${itemsText}\n\nWhich category does this document most likely belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
+              },
+              {
+                type: "file",
+                file: {
+                  filename: filename,
+                  file_data: `data:application/pdf;base64,${base64Pdf}`
+                }
+              }
+            ]
           }
         ],
         temperature: 0.3,
