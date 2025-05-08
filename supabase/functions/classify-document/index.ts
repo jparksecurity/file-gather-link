@@ -1,7 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1"
 import { OpenAI } from "https://esm.sh/openai@4.26.0"
 
 const corsHeaders = {
@@ -104,32 +103,24 @@ serve(async (req) => {
     console.log("Items for classification:", JSON.stringify(itemDescriptions));
     
     try {
-      // Convert PDF to base64 for OpenAI API
-      const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+      // Extract text-based prompt for classification
+      const itemsText = itemDescriptions.map(item => 
+        `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`
+      ).join('\n\n');
       
-      // Call OpenAI with the PDF content for classification
-      console.log("Sending to OpenAI for classification with PDF content");
+      console.log("Using text-based approach for PDF classification");
+      
+      // Call OpenAI with a text-based approach
       const chatCompletion = await openai.chat.completions.create({
         model: "gpt-4o-mini", // Using gpt-4o-mini as a replacement for gpt-4.1-nano
         messages: [
           {
             role: "system",
-            content: "You are an AI document classifier. You will receive a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to based on its content. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
+            content: "You are an AI document classifier. You will receive information about a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
           },
           {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: `I'm sending a PDF document. Please classify it into one of these categories:\n\n${itemDescriptions.map(item => `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`).join('\n\n')}\n\nWhich category does this document belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${base64Pdf}`
-                }
-              }
-            ]
+            content: `I have a PDF document with the filename: ${filename}. Please classify it into one of these categories:\n\n${itemsText}\n\nWhich category does this document most likely belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
           }
         ],
         temperature: 0.3,
