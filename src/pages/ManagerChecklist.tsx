@@ -96,7 +96,7 @@ const ManagerChecklist = () => {
   // Function to get unclassified files
   const getUnclassifiedFiles = () => {
     if (!checklist?.files) return [];
-    return checklist.files.filter(file => file.status === 'unclassified');
+    return checklist.files.filter(file => file.status === 'unclassified' && file.item_id === null);
   };
 
   if (isLoading) {

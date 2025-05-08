@@ -91,18 +91,24 @@ export type Database = {
           admin_key: string
           created_at: string
           id: string
+          manager_url: string
+          public_url: string
           slug: string
         }
         Insert: {
           admin_key: string
           created_at?: string
           id?: string
+          manager_url: string
+          public_url: string
           slug: string
         }
         Update: {
           admin_key?: string
           created_at?: string
           id?: string
+          manager_url?: string
+          public_url?: string
           slug?: string
         }
         Relationships: []

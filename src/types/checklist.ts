@@ -8,7 +8,7 @@ export interface ChecklistItem {
 
 export interface ChecklistFile {
   id: string;
-  item_id: string;
+  item_id: string | null;
   filename: string;
   status: 'uploaded' | 'unclassified';
   uploaded_at: string;
