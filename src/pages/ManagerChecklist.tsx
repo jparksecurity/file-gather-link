@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { 
@@ -62,13 +63,35 @@ const ManagerChecklist = () => {
 
   const handleDownload = async (file: ChecklistFile) => {
     try {
-      const url = await getDownloadUrl(file.file_path);
+      // Get the associated item title if this file is classified
+      let itemTitle: string | undefined;
+      
+      if (file.item_id) {
+        const associatedItem = checklist?.items.find(item => item.id === file.item_id);
+        if (associatedItem) {
+          itemTitle = associatedItem.title;
+        }
+      } else {
+        // For unclassified files, use "Unclassified" as the prefix
+        itemTitle = "Unclassified";
+      }
+      
+      // Get the download URL and suggested filename
+      const { signedUrl, downloadFilename } = await getDownloadUrl(
+        file.file_path, 
+        itemTitle, 
+        file.filename
+      );
 
       // Create a temporary anchor element
       const link = document.createElement('a');
-      link.href = url;
-      // This tells the browser "download this, don't navigate"
-      link.download = file.filename;
+      link.href = signedUrl;
+      // Use the combined filename if available
+      if (downloadFilename) {
+        link.download = downloadFilename;
+      } else {
+        link.download = file.filename;
+      }
       document.body.appendChild(link);
 
       // Programmatically click it to start the download
@@ -77,7 +100,7 @@ const ManagerChecklist = () => {
       // Clean up
       document.body.removeChild(link);
 
-      toast.success(`Downloading ${file.filename}`);
+      toast.success(`Downloading ${downloadFilename || file.filename}`);
     } catch (error) {
       console.error("Error downloading file:", error);
       toast.error("Failed to download file. Please try again.");

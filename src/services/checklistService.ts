@@ -304,7 +304,7 @@ export async function uploadFile(file: File, checklistSlug: string, itemId?: str
   }
 }
 
-export async function getDownloadUrl(filePath: string) {
+export async function getDownloadUrl(filePath: string, itemTitle?: string, filename?: string) {
   try {
     // Create a signed URL with download flag set to true
     const { data, error } = await supabase
@@ -316,7 +316,10 @@ export async function getDownloadUrl(filePath: string) {
     
     if (error) throw error;
     
-    return data.signedUrl;
+    return {
+      signedUrl: data.signedUrl,
+      downloadFilename: itemTitle && filename ? `${itemTitle} - ${filename}` : filename
+    };
   } catch (error) {
     console.error("Error generating download URL:", error);
     throw error;
