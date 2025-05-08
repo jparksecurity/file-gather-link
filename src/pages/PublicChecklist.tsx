@@ -1,31 +1,19 @@
 
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import { toast } from "sonner";
-import StatusBadge from "@/components/StatusBadge";
-import { FileCheck, AlertCircle, HelpCircle, Loader2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import GlobalFileDropzone from "@/components/GlobalFileDropzone";
-import FileDropzone from "@/components/FileDropzone";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+
+// Import new components
+import Header from "@/components/public/Header";
+import AIClassificationTab from "@/components/public/AIClassificationTab";
+import ManualUploadTab from "@/components/public/ManualUploadTab";
+import ImportantNotes from "@/components/public/ImportantNotes";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -151,14 +139,7 @@ const PublicChecklist = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white shadow-sm py-4">
-        <div className="container flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileCheck className="size-6 text-primary" />
-            <h1 className="text-xl font-bold">DocCollect</h1>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="container py-8 flex-1">
         <div className="max-w-3xl mx-auto">
@@ -174,181 +155,27 @@ const PublicChecklist = () => {
             </TabsList>
             
             <TabsContent value="global">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-4">AI-Powered Document Classification</h2>
-                <p className="mb-4 text-muted-foreground">
-                  Drop any document here and our AI will analyze and classify it to the correct requirement.
-                </p>
-                {isGlobalUploading() ? (
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex flex-col items-center justify-center py-8 text-center">
-                        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Processing your document...</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          AI is analyzing and classifying your file. This may take a few moments.
-                        </p>
-                        <div className="w-full max-w-md">
-                          <Progress value={75} className="h-2" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <GlobalFileDropzone onFileAccepted={(file) => handleFileUpload(file)} />
-                )}
-              </div>
-              
-              <div className="mt-8">
-                <h3 className="text-lg font-medium mb-3">Required Documents</h3>
-                <div className="space-y-3">
-                  {checklist.items.map((item) => {
-                    const status = getItemStatus(item.id);
-                    
-                    return (
-                      <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg bg-white">
-                        <div>
-                          <p className="font-medium">{item.title}</p>
-                          {item.description && (
-                            <p className="text-sm text-muted-foreground">{item.description}</p>
-                          )}
-                        </div>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span>
-                                <StatusBadge status={status} />
-                                {status === 'unclassified' && (
-                                  <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
-                                )}
-                              </span>
-                            </TooltipTrigger>
-                            {status === 'unclassified' && (
-                              <TooltipContent>
-                                <p>AI couldn't classify this document with confidence</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              {unclassifiedFiles.length > 0 && (
-                <div className="mt-8 mb-12">
-                  <h3 className="text-lg font-medium mb-3 flex items-center">
-                    <span className="text-amber-600 mr-1">●</span> Unclassified Files
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span>
-                            <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>AI couldn't match these documents to any specific requirement</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </h3>
-                  <div className="space-y-3">
-                    {unclassifiedFiles.map((file) => (
-                      <div key={file.id} className="flex justify-between items-center p-3 border border-amber-200 rounded-lg bg-amber-50">
-                        <div>
-                          <p className="font-medium">{file.filename}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Uploaded {new Date(file.uploaded_at).toLocaleString()}
-                          </p>
-                        </div>
-                        <StatusBadge status="unclassified" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <AIClassificationTab 
+                items={checklist.items}
+                getItemStatus={getItemStatus}
+                handleFileUpload={handleFileUpload}
+                isGlobalUploading={isGlobalUploading()}
+                unclassifiedFiles={unclassifiedFiles}
+              />
             </TabsContent>
             
             <TabsContent value="items">
-              <h2 className="text-xl font-semibold mb-4">Manual Upload to Specific Requirements</h2>
-              <div className="space-y-4 mb-8">
-                {checklist.items.map((item) => {
-                  const status = getItemStatus(item.id);
-                  const hasFile = isItemHasFile(item.id);
-                  const isUploading = isItemUploading(item.id);
-                  
-                  return (
-                    <Card key={item.id} className={status === 'uploaded' ? 'border-green-200' : ''}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg">{item.title}</CardTitle>
-                          {isUploading ? (
-                            <div className="flex items-center">
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin text-amber-500" />
-                              <span className="text-sm text-amber-500">Uploading...</span>
-                            </div>
-                          ) : (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    <StatusBadge status={status} />
-                                    {status === 'unclassified' && (
-                                      <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
-                                    )}
-                                  </span>
-                                </TooltipTrigger>
-                                {status === 'unclassified' && (
-                                  <TooltipContent>
-                                    <p>AI couldn't classify this document with confidence</p>
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                        {item.description && (
-                          <CardDescription>{item.description}</CardDescription>
-                        )}
-                      </CardHeader>
-                      <CardContent>
-                        {isUploading ? (
-                          <div className="border border-dashed rounded-md p-4 h-24">
-                            <div className="flex flex-col items-center justify-center h-full">
-                              <div className="flex items-center mb-2">
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                <span className="text-sm font-medium">Processing...</span>
-                              </div>
-                              <Progress value={undefined} className="h-1 w-2/3" />
-                            </div>
-                          </div>
-                        ) : (
-                          <FileDropzone 
-                            onFileAccepted={(file) => handleFileUpload(file, item.id)} 
-                            itemId={item.id}
-                            disabled={hasFile}
-                            className="border border-dashed rounded-md p-4 h-24"
-                          />
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+              <ManualUploadTab 
+                items={checklist.items}
+                getItemStatus={getItemStatus}
+                isItemHasFile={isItemHasFile}
+                isItemUploading={isItemUploading}
+                handleFileUpload={handleFileUpload}
+              />
             </TabsContent>
           </Tabs>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <h3 className="font-medium text-blue-800">Important Notes</h3>
-            <ul className="list-disc list-inside text-sm text-blue-700 mt-2">
-              <li>Maximum file size is 100 MB per document</li>
-              <li>Only PDF files are accepted</li>
-              <li>Each requirement can only have one file</li>
-              <li>The AI will try to match your document to the correct requirement</li>
-              <li>If AI can't classify your document, it will appear in the "Unclassified Files" section</li>
-            </ul>
-          </div>
+          <ImportantNotes />
         </div>
       </main>
     </div>
