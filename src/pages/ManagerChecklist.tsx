@@ -64,23 +64,25 @@ const ManagerChecklist = () => {
     try {
       const url = await getDownloadUrl(file.file_path);
       
-      // Create a link element and configure it for downloading
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.filename || 'download.pdf'; // Use filename or fallback
-      a.setAttribute('download', file.filename || 'download.pdf'); // Extra attribute for compatibility
-      a.rel = 'noopener noreferrer'; // Security best practice
-      a.target = '_blank'; // Open in new tab as fallback
-      a.style.display = 'none'; // Hide the element
+      // Use a more reliable method to force the download
+      // Create an invisible iframe to handle the download
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
       
-      // Add to DOM, trigger click, then remove
-      document.body.appendChild(a);
-      a.click();
+      // Write a form to the iframe that will submit to the URL
+      const form = document.createElement('form');
+      form.method = 'GET';
+      form.action = url;
+      iframe.contentDocument?.body.appendChild(form);
       
-      // Small delay before cleanup to ensure download starts
+      // Submit the form
+      form.submit();
+      
+      // Remove the iframe after a delay
       setTimeout(() => {
-        document.body.removeChild(a);
-      }, 100);
+        document.body.removeChild(iframe);
+      }, 5000); // Give it time to complete the download
       
       toast.success(`Downloading ${file.filename}`);
     } catch (error) {

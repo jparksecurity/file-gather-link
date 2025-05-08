@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Checklist, ChecklistItem, ChecklistFile } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -306,14 +307,13 @@ export async function uploadFile(file: File, checklistSlug: string, itemId?: str
 
 export async function getDownloadUrl(filePath: string) {
   try {
+    // For PDF files, we need to use a simpler approach without transforms
+    // The transform option is causing the "Invalid source image" error
     const { data, error } = await supabase
       .storage
       .from('doccollect')
       .createSignedUrl(filePath, 60 * 60, {
-        download: true, // This forces a download instead of display in browser
-        transform: {
-          quality: 100 // Maintain original quality
-        }
+        download: true // Force download instead of display in browser
       }); 
     
     if (error) throw error;
