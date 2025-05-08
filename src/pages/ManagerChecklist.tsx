@@ -63,27 +63,20 @@ const ManagerChecklist = () => {
   const handleDownload = async (file: ChecklistFile) => {
     try {
       const url = await getDownloadUrl(file.file_path);
-      
-      // Use a more reliable method to force the download
-      // Create an invisible iframe to handle the download
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      
-      // Write a form to the iframe that will submit to the URL
-      const form = document.createElement('form');
-      form.method = 'GET';
-      form.action = url;
-      iframe.contentDocument?.body.appendChild(form);
-      
-      // Submit the form
-      form.submit();
-      
-      // Remove the iframe after a delay
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 5000); // Give it time to complete the download
-      
+
+      // Create a temporary anchor element
+      const link = document.createElement('a');
+      link.href = url;
+      // This tells the browser "download this, don't navigate"
+      link.download = file.filename;
+      document.body.appendChild(link);
+
+      // Programmatically click it to start the download
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+
       toast.success(`Downloading ${file.filename}`);
     } catch (error) {
       console.error("Error downloading file:", error);
