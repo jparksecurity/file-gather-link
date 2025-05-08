@@ -29,9 +29,9 @@ const UnclassifiedFileList: React.FC<UnclassifiedFileListProps> = ({ files, onDo
   }
   
   return (
-    <div className="mb-8">
+    <div className="mb-12">
       <h2 className="text-xl font-semibold mb-4">Unclassified Files</h2>
-      <div className="space-y-4">
+      <div className="space-y-4 mb-8">
         {files.map(file => (
           <Card key={file.id}>
             <CardHeader>
