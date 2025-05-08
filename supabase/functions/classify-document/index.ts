@@ -2,6 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1"
+import { OpenAI } from "https://esm.sh/openai@4.26.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,11 +49,6 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
     // Download the PDF
     console.log("Downloading PDF from:", fileUrl);
     let response;
@@ -75,39 +71,12 @@ serve(async (req) => {
     
     const pdfBytes = await response.arrayBuffer();
     
-    // Extract text content from the PDF
-    console.log("Extracting text from PDF");
-    let pdfDoc;
-    try {
-      pdfDoc = await PDFDocument.load(pdfBytes);
-    } catch (pdfError) {
-      console.error("Error loading PDF:", pdfError);
-      return new Response(
-        JSON.stringify({ 
-          status: 'unclassified', 
-          item_id: null,
-          error: `Error loading PDF: ${pdfError.message}` 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-    
-    // We don't have direct text extraction in PDF-lib, so let's use the filename as a fallback
+    // Get filename for additional context
     const filePathParts = fileUrl.split('/');
     const filename = filePathParts[filePathParts.length - 1];
-    console.log("Using filename for classification:", filename);
+    console.log("PDF filename for classification:", filename);
     
-    // Prepare the titles and descriptions for classification
-    const itemDescriptions = items.map(item => ({
-      id: item.id,
-      title: item.title,
-      description: item.description || ''
-    }));
-    
-    console.log("Items for classification:", JSON.stringify(itemDescriptions));
-    console.log("Sending to OpenAI for classification");
-    
-    // Check if OPENAI_API_KEY is available
+    // Initialize OpenAI client
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
       console.error("OpenAI API key is missing");
@@ -121,54 +90,55 @@ serve(async (req) => {
       );
     }
     
+    const openai = new OpenAI({
+      apiKey: openaiApiKey
+    });
+    
+    // Prepare the items for classification
+    const itemDescriptions = items.map(item => ({
+      id: item.id,
+      title: item.title,
+      description: item.description || ''
+    }));
+    
+    console.log("Items for classification:", JSON.stringify(itemDescriptions));
+    
     try {
-      // Make the request to OpenAI
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini', // Using gpt-4o-mini as a replacement for gpt-4.1-nano
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an AI that classifies documents. You will receive a filename and a list of possible document categories. Your task is to determine which category the document belongs to based on the filename. Return only the ID of the matching category, or "unclassified" if you cannot determine a match with confidence.'
-            },
-            {
-              role: 'user',
-              content: `Filename: ${filename}\n\nPossible categories:\n${itemDescriptions.map(item => `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`).join('\n\n')}\n\nWhich category does this document belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 50
-        })
+      // Convert PDF to base64 for OpenAI API
+      const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+      
+      // Call OpenAI with the PDF content for classification
+      console.log("Sending to OpenAI for classification with PDF content");
+      const chatCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini", // Using gpt-4o-mini as a replacement for gpt-4.1-nano
+        messages: [
+          {
+            role: "system",
+            content: "You are an AI document classifier. You will receive a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to based on its content. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `I'm sending a PDF document. Please classify it into one of these categories:\n\n${itemDescriptions.map(item => `ID: ${item.id}\nTitle: ${item.title}\nDescription: ${item.description}`).join('\n\n')}\n\nWhich category does this document belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:application/pdf;base64,${base64Pdf}`
+                }
+              }
+            ]
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 50
       });
       
-      if (!openaiResponse.ok) {
-        const errorText = await openaiResponse.text();
-        console.error("OpenAI API error:", errorText);
-        try {
-          const errorData = JSON.parse(errorText);
-          console.error("OpenAI API error details:", JSON.stringify(errorData));
-        } catch (e) {
-          // Ignore if can't parse as JSON
-        }
-        return new Response(
-          JSON.stringify({ 
-            status: 'unclassified', 
-            item_id: null,
-            error: 'AI classification failed, marking as unclassified' 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      console.log("OpenAI response:", JSON.stringify(chatCompletion));
       
-      const openaiData = await openaiResponse.json();
-      console.log("OpenAI response:", JSON.stringify(openaiData));
-      
-      let matchedItemId = openaiData.choices[0].message.content.trim();
+      const matchedItemId = chatCompletion.choices[0].message.content.trim();
       console.log("Raw matched item ID:", matchedItemId);
       
       // Validate the response
@@ -176,7 +146,13 @@ serve(async (req) => {
       
       if (!isValidItemId && matchedItemId !== 'unclassified') {
         console.log(`Invalid item ID returned: ${matchedItemId}, marking as unclassified`);
-        matchedItemId = 'unclassified';
+        return new Response(
+          JSON.stringify({ 
+            status: 'unclassified', 
+            item_id: null 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
       const status = matchedItemId === 'unclassified' ? 'unclassified' : 'uploaded';
