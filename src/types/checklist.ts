@@ -3,21 +3,23 @@ export interface ChecklistItem {
   id: string;
   title: string;
   description: string;
+  position: number;
 }
 
 export interface ChecklistFile {
   id: string;
-  itemId: string;
+  item_id: string;
   filename: string;
   status: 'uploaded' | 'unclassified';
-  uploadDate: string;
+  uploaded_at: string;
+  file_path: string;
 }
 
 export interface Checklist {
   id: string;
   slug: string;
-  adminKey?: string;
+  admin_key?: string;
   items: ChecklistItem[];
   files?: ChecklistFile[];
-  createdAt: string;
+  created_at: string;
 }

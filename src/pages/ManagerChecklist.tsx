@@ -12,83 +12,36 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checklist } from "@/types/checklist";
+import { Checklist, ChecklistFile } from "@/types/checklist";
 import StatusBadge from "@/components/StatusBadge";
 import { toast } from "sonner";
-import { Check, FileCheck, AlertCircle, Download, Copy } from "lucide-react";
+import { Check, FileCheck, AlertCircle, Download, Copy, RefreshCw } from "lucide-react";
+import { getChecklist, getDownloadUrl } from "@/services/checklistService";
+import { useQuery } from "@tanstack/react-query";
 
 const ManagerChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const adminKey = searchParams.get('key');
-  const [checklist, setChecklist] = useState<Checklist | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string>("");
-
+  
   useEffect(() => {
     // Set the public URL
     setPublicUrl(`${window.location.origin}/${slug}`);
-    
-    // In a real app, this would be an API call to fetch the checklist with admin key validation
-    const fetchChecklist = () => {
-      setLoading(true);
-      
-      try {
-        if (!adminKey) {
-          setError("Admin key required to access this page");
-          return;
-        }
-        
-        const storedChecklist = localStorage.getItem(`checklist-${slug}`);
-        
-        if (!storedChecklist) {
-          setError("Checklist not found");
-          return;
-        }
-        
-        const parsedChecklist = JSON.parse(storedChecklist);
-        
-        // Verify admin key (in a real app this would be done server-side)
-        if (parsedChecklist.adminKey !== adminKey) {
-          setError("Invalid admin key");
-          return;
-        }
-        
-        setChecklist(parsedChecklist);
-      } catch (err) {
-        console.error("Error fetching checklist:", err);
-        setError("Failed to load checklist");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchChecklist();
-    
-    // Set an interval to refresh the checklist data every 30 seconds
-    const interval = setInterval(() => {
-      if (!adminKey) return;
-      
-      try {
-        const storedChecklist = localStorage.getItem(`checklist-${slug}`);
-        if (storedChecklist) {
-          const parsedChecklist = JSON.parse(storedChecklist);
-          setChecklist(parsedChecklist);
-        }
-      } catch (err) {
-        console.error("Error refreshing checklist:", err);
-      }
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [slug, adminKey]);
+  }, [slug]);
+
+  const { data: checklist, isLoading, error, refetch } = useQuery({
+    queryKey: ['checklist', slug, adminKey],
+    queryFn: () => getChecklist(slug!, adminKey || undefined),
+    retry: 1,
+    enabled: !!slug && !!adminKey,
+  });
 
   const getItemStatus = (itemId: string) => {
     if (!checklist?.files?.length) return 'missing';
     
-    const itemFiles = checklist.files.filter(file => file.itemId === itemId);
+    const itemFiles = checklist.files.filter(file => file.item_id === itemId);
     
     if (!itemFiles.length) return 'missing';
     
@@ -101,19 +54,30 @@ const ManagerChecklist = () => {
     if (!checklist?.files?.length) return null;
     
     // Find uploaded file first, then unclassified if no uploaded file exists
-    const uploadedFile = checklist.files.find(file => file.itemId === itemId && file.status === 'uploaded');
+    const uploadedFile = checklist.files.find(file => file.item_id === itemId && file.status === 'uploaded');
     if (uploadedFile) return uploadedFile;
     
-    const unclassifiedFile = checklist.files.find(file => file.itemId === itemId && file.status === 'unclassified');
+    const unclassifiedFile = checklist.files.find(file => file.item_id === itemId && file.status === 'unclassified');
     return unclassifiedFile;
   };
 
-  const handleDownload = (fileId: string, filename: string) => {
-    // In a real app, this would be an API call to get a pre-signed URL
-    toast.success(`Downloading ${filename}`);
-    
-    // For this MVP, we'll just show a toast since we don't actually have files stored
-    toast.info("This is a demo - in a real app, the file would download now");
+  const handleDownload = async (file: ChecklistFile) => {
+    try {
+      const url = await getDownloadUrl(file.file_path);
+      
+      // Create a temporary anchor element to trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      toast.success(`Downloading ${file.filename}`);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      toast.error("Failed to download file. Please try again.");
+    }
   };
 
   const copyPublicUrl = () => {
@@ -126,11 +90,12 @@ const ManagerChecklist = () => {
     toast.success("Manager URL copied to clipboard");
   };
 
-  const refreshPage = () => {
-    window.location.reload();
+  const refreshData = () => {
+    refetch();
+    toast.info("Refreshing data...");
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -148,7 +113,7 @@ const ManagerChecklist = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Access Error</AlertTitle>
             <AlertDescription>
-              {error || "Checklist not found or you don't have permission to view it"}
+              Checklist not found or you don't have permission to view it
             </AlertDescription>
           </Alert>
           <div className="mt-4 flex justify-center">
@@ -169,8 +134,8 @@ const ManagerChecklist = () => {
             <FileCheck className="size-6 text-primary" />
             <h1 className="text-xl font-bold">DocCollect</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={refreshPage}>
-            Refresh
+          <Button variant="outline" size="sm" onClick={refreshData}>
+            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
           </Button>
         </div>
       </header>
@@ -219,7 +184,7 @@ const ManagerChecklist = () => {
           <h2 className="text-xl font-semibold mb-4">Document Checklist Status</h2>
           
           <div className="space-y-6 mb-8">
-            {checklist.items.map((item, index) => {
+            {checklist.items.map((item) => {
               const status = getItemStatus(item.id);
               const file = getItemFile(item.id);
               
@@ -240,13 +205,13 @@ const ManagerChecklist = () => {
                         <div className="flex-1">
                           <p className="font-medium text-sm truncate">{file.filename}</p>
                           <p className="text-xs text-muted-foreground">
-                            Uploaded {new Date(file.uploadDate).toLocaleString()}
+                            Uploaded {new Date(file.uploaded_at).toLocaleString()}
                           </p>
                         </div>
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleDownload(file.id, file.filename)}
+                          onClick={() => handleDownload(file)}
                         >
                           <Download className="h-4 w-4 mr-1" /> Download
                         </Button>
@@ -265,7 +230,7 @@ const ManagerChecklist = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <h3 className="font-medium text-blue-800">Manager Instructions</h3>
             <ul className="list-disc list-inside text-sm text-blue-700 mt-2">
-              <li>You may need to refresh the page to see the latest uploads</li>
+              <li>Click Refresh to see the latest uploads</li>
               <li>Files are auto-classified by AI but may need review</li>
               <li>This manager URL gives full access to all documents</li>
               <li>Store your manager URL securely - it can't be recovered</li>

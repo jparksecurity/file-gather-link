@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
@@ -10,11 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ChecklistItem } from "@/types/checklist";
 import { Trash, Plus, FileCheck } from "lucide-react";
+import { createChecklist } from "@/services/checklistService";
 
 const ChecklistBuilder = () => {
   const navigate = useNavigate();
-  const [items, setItems] = useState<ChecklistItem[]>([
-    { id: uuidv4(), title: "", description: "" }
+  const [items, setItems] = useState<Omit<ChecklistItem, 'id' | 'position'>[]>([
+    { title: "", description: "" }
   ]);
   const [isPublishing, setIsPublishing] = useState(false);
 
@@ -23,21 +23,21 @@ const ChecklistBuilder = () => {
       toast.error("You can add a maximum of 10 items");
       return;
     }
-    setItems([...items, { id: uuidv4(), title: "", description: "" }]);
+    setItems([...items, { title: "", description: "" }]);
   };
 
-  const removeItem = (id: string) => {
+  const removeItem = (index: number) => {
     if (items.length === 1) {
       toast.error("You must have at least one item");
       return;
     }
-    setItems(items.filter(item => item.id !== id));
+    setItems(items.filter((_, i) => i !== index));
   };
 
-  const updateItem = (id: string, field: "title" | "description", value: string) => {
+  const updateItem = (index: number, field: "title" | "description", value: string) => {
     setItems(
-      items.map(item =>
-        item.id === id ? { ...item, [field]: value } : item
+      items.map((item, i) =>
+        i === index ? { ...item, [field]: value } : item
       )
     );
   };
@@ -73,29 +73,11 @@ const ChecklistBuilder = () => {
     setIsPublishing(true);
     
     try {
-      // This is a mock implementation for the MVP
-      // In a real implementation, we would send this to the backend
-      
-      // Generate mock slugs - in a real app these would come from backend
-      const slug = uuidv4().replace(/-/g, "").substring(0, 16);
-      const adminKey = uuidv4().replace(/-/g, "").substring(0, 16);
-      
-      // Mock saving to local storage for demo
-      const checklist = {
-        id: uuidv4(),
-        slug,
-        adminKey,
-        items,
-        createdAt: new Date().toISOString(),
-        files: []
-      };
-      
-      localStorage.setItem(`checklist-${slug}`, JSON.stringify(checklist));
-      
+      const checklist = await createChecklist(items);
       toast.success("Checklist published successfully!");
       
       // Navigate to the manager checklist view with admin key
-      navigate(`/${slug}/manage?key=${adminKey}`);
+      navigate(`/${checklist.slug}/manage?key=${checklist.admin_key}`);
     } catch (error) {
       console.error("Error publishing checklist:", error);
       toast.error("Failed to publish checklist. Please try again.");
@@ -124,14 +106,14 @@ const ChecklistBuilder = () => {
           
           <div className="space-y-4 mb-8">
             {items.map((item, index) => (
-              <Card key={item.id}>
+              <Card key={index}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center justify-between">
                     <span>Item {index + 1}</span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => removeItem(index)}
                       disabled={items.length === 1}
                     >
                       <Trash className="h-4 w-4" />
@@ -140,13 +122,13 @@ const ChecklistBuilder = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor={`title-${item.id}`}>Document Title*</Label>
+                    <Label htmlFor={`title-${index}`}>Document Title*</Label>
                     <div className="mt-1">
                       <Input
-                        id={`title-${item.id}`}
+                        id={`title-${index}`}
                         placeholder="e.g., Resume, ID Card, Proof of Address"
                         value={item.title}
-                        onChange={(e) => updateItem(item.id, "title", e.target.value)}
+                        onChange={(e) => updateItem(index, "title", e.target.value)}
                         maxLength={100}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -156,13 +138,13 @@ const ChecklistBuilder = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor={`description-${item.id}`}>Description (Optional)</Label>
+                    <Label htmlFor={`description-${index}`}>Description (Optional)</Label>
                     <div className="mt-1">
                       <Textarea
-                        id={`description-${item.id}`}
+                        id={`description-${index}`}
                         placeholder="Add details about the document requirements"
                         value={item.description}
-                        onChange={(e) => updateItem(item.id, "description", e.target.value)}
+                        onChange={(e) => updateItem(index, "description", e.target.value)}
                         maxLength={300}
                       />
                       <p className="text-xs text-muted-foreground mt-1">

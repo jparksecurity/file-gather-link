@@ -9,7 +9,104 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      checklist_files: {
+        Row: {
+          checklist_id: string
+          file_path: string
+          filename: string
+          id: string
+          item_id: string
+          status: string
+          uploaded_at: string
+        }
+        Insert: {
+          checklist_id: string
+          file_path: string
+          filename: string
+          id?: string
+          item_id: string
+          status: string
+          uploaded_at?: string
+        }
+        Update: {
+          checklist_id?: string
+          file_path?: string
+          filename?: string
+          id?: string
+          item_id?: string
+          status?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_files_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_files_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_items: {
+        Row: {
+          checklist_id: string
+          description: string | null
+          id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          checklist_id: string
+          description?: string | null
+          id?: string
+          position: number
+          title: string
+        }
+        Update: {
+          checklist_id?: string
+          description?: string | null
+          id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_items_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklists: {
+        Row: {
+          admin_key: string
+          created_at: string
+          id: string
+          slug: string
+        }
+        Insert: {
+          admin_key: string
+          created_at?: string
+          id?: string
+          slug: string
+        }
+        Update: {
+          admin_key?: string
+          created_at?: string
+          id?: string
+          slug?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

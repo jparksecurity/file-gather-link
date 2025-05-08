@@ -14,84 +14,50 @@ import { toast } from "sonner";
 import FileDropzone from "@/components/FileDropzone";
 import StatusBadge from "@/components/StatusBadge";
 import { FileCheck, AlertCircle } from "lucide-react";
+import { getChecklist, uploadFile } from "@/services/checklistService";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
-  const [checklist, setChecklist] = useState<Checklist | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    // In a real app, this would be an API call to fetch the checklist
-    const fetchChecklist = () => {
-      setLoading(true);
-      try {
-        const storedChecklist = localStorage.getItem(`checklist-${slug}`);
-        
-        if (!storedChecklist) {
-          setError("Checklist not found");
-          return;
-        }
-        
-        setChecklist(JSON.parse(storedChecklist));
-      } catch (err) {
-        console.error("Error fetching checklist:", err);
-        setError("Failed to load checklist");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchChecklist();
-  }, [slug]);
+  const { data: checklist, isLoading, error } = useQuery({
+    queryKey: ['checklist', slug],
+    queryFn: () => getChecklist(slug!),
+    retry: 1,
+  });
 
-  const handleFileUpload = async (file: File, itemId: string) => {
-    if (!checklist) return;
-    
-    // In a real app, this would be an API call to upload the file to Supabase
-    try {
-      toast.info("Processing your file...");
+  const uploadFileMutation = useMutation({
+    mutationFn: ({ file, itemId }: { file: File, itemId: string }) => 
+      uploadFile(file, slug!, itemId),
+    onSuccess: (newFile) => {
+      toast.success("File uploaded successfully!");
       
-      // Simulate API delay and classification
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock classification result - randomly classify as correct or unclassified
-      const status = Math.random() > 0.3 ? 'uploaded' : 'unclassified';
-      
-      const newFile: ChecklistFile = {
-        id: Math.random().toString(36).substring(7),
-        itemId: itemId,
-        filename: file.name,
-        status: status,
-        uploadDate: new Date().toISOString()
-      };
-      
-      const updatedChecklist = {
-        ...checklist,
-        files: [...(checklist.files || []), newFile]
-      };
-      
-      // Save to local storage
-      localStorage.setItem(`checklist-${slug}`, JSON.stringify(updatedChecklist));
-      
-      // Update state
-      setChecklist(updatedChecklist);
-      
-      if (status === 'uploaded') {
-        toast.success("File uploaded successfully!");
-      } else {
-        toast.warning("File uploaded but couldn't be automatically classified");
-      }
-    } catch (error) {
+      // Update the local cache with the new file
+      queryClient.setQueryData<Checklist>(['checklist', slug], (old) => {
+        if (!old) return old;
+        
+        return {
+          ...old,
+          files: [...(old.files || []), newFile]
+        };
+      });
+    },
+    onError: (error) => {
       console.error("Error uploading file:", error);
       toast.error("Failed to upload file. Please try again.");
     }
+  });
+
+  const handleFileUpload = async (file: File, itemId: string) => {
+    toast.info("Processing your file...");
+    uploadFileMutation.mutate({ file, itemId });
   };
 
   const getItemStatus = (itemId: string) => {
     if (!checklist?.files?.length) return 'missing';
     
-    const itemFiles = checklist.files.filter(file => file.itemId === itemId);
+    const itemFiles = checklist.files.filter(file => file.item_id === itemId);
     
     if (!itemFiles.length) return 'missing';
     
@@ -100,7 +66,7 @@ const PublicChecklist = () => {
     return 'unclassified';
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -118,7 +84,7 @@ const PublicChecklist = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>
-              {error || "Checklist not found or invalid link"}
+              Checklist not found or invalid link
             </AlertDescription>
           </Alert>
         </div>
@@ -145,7 +111,7 @@ const PublicChecklist = () => {
           </p>
 
           <div className="space-y-6 mb-8">
-            {checklist.items.map((item, index) => {
+            {checklist.items.map((item) => {
               const status = getItemStatus(item.id);
               const isUploaded = status === 'uploaded';
               
