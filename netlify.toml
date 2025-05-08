@@ -13,6 +13,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/classify-document"
+  to = "https://cxvewyrxnimxrartklqz.supabase.co/functions/v1/classify-document"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

@@ -57,7 +57,7 @@ const PublicChecklist = () => {
       if (error.message === "This item already has a file uploaded") {
         toast.error("This requirement already has a file uploaded.");
       } else {
-        toast.error("Failed to upload file. Please try again.");
+        toast.error(`Failed to upload file: ${error.message || "Please try again."}`);
       }
     }
   });

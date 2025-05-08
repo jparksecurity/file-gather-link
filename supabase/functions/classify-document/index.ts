@@ -15,58 +15,110 @@ serve(async (req) => {
   }
 
   try {
-    const { fileUrl, items } = await req.json()
-
-    if (!fileUrl || !items || !Array.isArray(items)) {
+    console.log("classify-document function called");
+    
+    // Parse request body and validate input
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log("Request body received:", JSON.stringify(requestBody));
+    } catch (jsonError) {
+      console.error("Error parsing request JSON:", jsonError);
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+      );
+    }
+    
+    const { fileUrl, items } = requestBody;
+
+    if (!fileUrl) {
+      console.error("Missing fileUrl parameter");
+      return new Response(
+        JSON.stringify({ error: 'Missing fileUrl parameter' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      console.error("Missing or invalid items parameter");
+      return new Response(
+        JSON.stringify({ error: 'Missing or invalid items parameter' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // Download the PDF
-    console.log("Downloading PDF from:", fileUrl)
-    const response = await fetch(fileUrl)
-    if (!response.ok) {
-      throw new Error(`Failed to download PDF: ${response.statusText}`)
+    console.log("Downloading PDF from:", fileUrl);
+    let response;
+    try {
+      response = await fetch(fileUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
+      }
+    } catch (fetchError) {
+      console.error("Error fetching PDF:", fetchError);
+      return new Response(
+        JSON.stringify({ 
+          status: 'unclassified', 
+          item_id: null,
+          error: `Error fetching PDF: ${fetchError.message}` 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
     
-    const pdfBytes = await response.arrayBuffer()
+    const pdfBytes = await response.arrayBuffer();
     
     // Extract text content from the PDF
-    console.log("Extracting text from PDF")
-    const pdfDoc = await PDFDocument.load(pdfBytes)
+    console.log("Extracting text from PDF");
+    let pdfDoc;
+    try {
+      pdfDoc = await PDFDocument.load(pdfBytes);
+    } catch (pdfError) {
+      console.error("Error loading PDF:", pdfError);
+      return new Response(
+        JSON.stringify({ 
+          status: 'unclassified', 
+          item_id: null,
+          error: `Error loading PDF: ${pdfError.message}` 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
     
     // We don't have direct text extraction in PDF-lib, so let's use the filename as a fallback
-    // In a production environment, you'd want to use a more robust PDF text extraction library
-    const filePathParts = fileUrl.split('/')
-    const filename = filePathParts[filePathParts.length - 1]
+    const filePathParts = fileUrl.split('/');
+    const filename = filePathParts[filePathParts.length - 1];
+    console.log("Using filename for classification:", filename);
     
     // Prepare the titles and descriptions for classification
     const itemDescriptions = items.map(item => ({
       id: item.id,
       title: item.title,
       description: item.description || ''
-    }))
+    }));
     
-    console.log("Sending to OpenAI for classification")
+    console.log("Items for classification:", JSON.stringify(itemDescriptions));
+    console.log("Sending to OpenAI for classification");
     
     // Check if OPENAI_API_KEY is available
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
-      console.error("OpenAI API key is missing")
+      console.error("OpenAI API key is missing");
       return new Response(
         JSON.stringify({ 
           status: 'unclassified', 
+          item_id: null,
           error: 'OpenAI API key is not configured'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+      );
     }
     
     try {
@@ -92,30 +144,45 @@ serve(async (req) => {
           temperature: 0.3,
           max_tokens: 50
         })
-      })
+      });
       
       if (!openaiResponse.ok) {
-        const errorData = await openaiResponse.json()
-        console.error("OpenAI API error:", errorData)
+        const errorText = await openaiResponse.text();
+        console.error("OpenAI API error:", errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error("OpenAI API error details:", JSON.stringify(errorData));
+        } catch (e) {
+          // Ignore if can't parse as JSON
+        }
         return new Response(
-          JSON.stringify({ status: 'unclassified', error: 'AI classification failed, marking as unclassified' }),
+          JSON.stringify({ 
+            status: 'unclassified', 
+            item_id: null,
+            error: 'AI classification failed, marking as unclassified' 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        );
       }
       
-      const openaiData = await openaiResponse.json()
-      let matchedItemId = openaiData.choices[0].message.content.trim()
+      const openaiData = await openaiResponse.json();
+      console.log("OpenAI response:", JSON.stringify(openaiData));
+      
+      let matchedItemId = openaiData.choices[0].message.content.trim();
+      console.log("Raw matched item ID:", matchedItemId);
       
       // Validate the response
-      const isValidItemId = itemDescriptions.some(item => item.id === matchedItemId)
+      const isValidItemId = itemDescriptions.some(item => item.id === matchedItemId);
       
       if (!isValidItemId && matchedItemId !== 'unclassified') {
-        console.log(`Invalid item ID returned: ${matchedItemId}, marking as unclassified`)
-        matchedItemId = 'unclassified'
+        console.log(`Invalid item ID returned: ${matchedItemId}, marking as unclassified`);
+        matchedItemId = 'unclassified';
       }
       
-      const status = matchedItemId === 'unclassified' ? 'unclassified' : 'uploaded'
-      const finalItemId = matchedItemId === 'unclassified' ? null : matchedItemId
+      const status = matchedItemId === 'unclassified' ? 'unclassified' : 'uploaded';
+      const finalItemId = matchedItemId === 'unclassified' ? null : matchedItemId;
+      
+      console.log(`Classification complete. Status: ${status}, Item ID: ${finalItemId}`);
       
       return new Response(
         JSON.stringify({ 
@@ -123,28 +190,28 @@ serve(async (req) => {
           item_id: finalItemId 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     } catch (openaiError) {
-      console.error("Error calling OpenAI API:", openaiError)
+      console.error("Error calling OpenAI API:", openaiError);
       return new Response(
         JSON.stringify({ 
           status: 'unclassified', 
           item_id: null,
-          error: 'Error calling OpenAI API, marking as unclassified' 
+          error: `Error calling OpenAI API: ${openaiError.message}` 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+      );
     }
   } catch (error) {
-    console.error("Error in classify-document function:", error)
+    console.error("Error in classify-document function:", error);
     
     return new Response(
       JSON.stringify({ 
         status: 'unclassified', 
         item_id: null,
-        error: 'Error during classification, marking as unclassified' 
+        error: `Error during classification: ${error.message}` 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    )
+    );
   }
 })
