@@ -19,6 +19,8 @@ export interface Checklist {
   id: string;
   slug: string;
   admin_key?: string;
+  public_url: string;
+  manager_url: string;
   items: ChecklistItem[];
   files?: ChecklistFile[];
   created_at: string;

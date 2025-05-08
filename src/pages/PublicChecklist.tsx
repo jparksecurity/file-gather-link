@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { 
   Card, 
@@ -11,11 +11,11 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import { toast } from "sonner";
-import FileDropzone from "@/components/FileDropzone";
 import StatusBadge from "@/components/StatusBadge";
 import { FileCheck, AlertCircle } from "lucide-react";
 import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import GlobalFileDropzone from "@/components/GlobalFileDropzone";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -28,10 +28,9 @@ const PublicChecklist = () => {
   });
 
   const uploadFileMutation = useMutation({
-    mutationFn: ({ file, itemId }: { file: File, itemId: string }) => 
-      uploadFile(file, slug!, itemId),
+    mutationFn: (file: File) => uploadFile(file, slug!),
     onSuccess: (newFile: ChecklistFile) => {
-      toast.success("File uploaded successfully!");
+      toast.success("File uploaded and classified successfully!");
       
       // Update the local cache with the new file
       queryClient.setQueryData<Checklist>(['checklist', slug], (old) => {
@@ -43,15 +42,19 @@ const PublicChecklist = () => {
         };
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error uploading file:", error);
-      toast.error("Failed to upload file. Please try again.");
+      if (error.message === "This item already has a file uploaded") {
+        toast.error("This requirement already has a file uploaded.");
+      } else {
+        toast.error("Failed to upload file. Please try again.");
+      }
     }
   });
 
-  const handleFileUpload = async (file: File, itemId: string) => {
-    toast.info("Processing your file...");
-    uploadFileMutation.mutate({ file, itemId });
+  const handleFileUpload = async (file: File) => {
+    toast.info("Uploading and classifying your file...");
+    uploadFileMutation.mutate(file);
   };
 
   const getItemStatus = (itemId: string) => {
@@ -106,33 +109,30 @@ const PublicChecklist = () => {
       <main className="container py-8 flex-1">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">Document Checklist</h1>
-          <p className="mb-8 text-muted-foreground">
+          <p className="mb-6 text-muted-foreground">
             Please upload the requested PDFs. The system will automatically classify your documents.
           </p>
 
-          <div className="space-y-6 mb-8">
+          <div className="mb-8">
+            <GlobalFileDropzone onFileAccepted={handleFileUpload} />
+          </div>
+
+          <h2 className="text-xl font-semibold mb-4">Required Documents</h2>
+          <div className="space-y-4 mb-8">
             {checklist.items.map((item) => {
               const status = getItemStatus(item.id);
-              const isUploaded = status === 'uploaded';
               
               return (
-                <Card key={item.id} className="relative">
-                  <div className="absolute top-4 right-4">
-                    <StatusBadge status={status} />
-                  </div>
-                  <CardHeader>
-                    <CardTitle>{item.title}</CardTitle>
+                <Card key={item.id} className={status === 'uploaded' ? 'border-green-200' : ''}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{item.title}</CardTitle>
+                      <StatusBadge status={status} />
+                    </div>
                     {item.description && (
                       <CardDescription>{item.description}</CardDescription>
                     )}
                   </CardHeader>
-                  <CardContent>
-                    <FileDropzone
-                      itemId={item.id}
-                      onFileAccepted={(file) => handleFileUpload(file, item.id)}
-                      disabled={isUploaded}
-                    />
-                  </CardContent>
                 </Card>
               );
             })}
@@ -144,7 +144,8 @@ const PublicChecklist = () => {
               <li>Maximum file size is 100 MB per document</li>
               <li>Only PDF files are accepted</li>
               <li>You may need to refresh the page to see updated status</li>
-              <li>Contact the document requester if you have any questions</li>
+              <li>Each requirement can only have one file</li>
+              <li>The AI will try to match your document to the correct requirement</li>
             </ul>
           </div>
         </div>

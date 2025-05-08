@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { 
   Card, 
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import StatusBadge from "@/components/StatusBadge";
 import { toast } from "sonner";
-import { Check, FileCheck, AlertCircle, Download, Copy, RefreshCw } from "lucide-react";
+import { FileCheck, AlertCircle, Download, Copy, RefreshCw } from "lucide-react";
 import { getChecklist, getDownloadUrl } from "@/services/checklistService";
 import { useQuery } from "@tanstack/react-query";
 
@@ -24,13 +24,7 @@ const ManagerChecklist = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const adminKey = searchParams.get('key');
-  const [publicUrl, setPublicUrl] = useState<string>("");
   
-  useEffect(() => {
-    // Set the public URL
-    setPublicUrl(`${window.location.origin}/${slug}`);
-  }, [slug]);
-
   const { data: checklist, isLoading, error, refetch } = useQuery({
     queryKey: ['checklist', slug, adminKey],
     queryFn: () => getChecklist(slug!, adminKey || undefined),
@@ -81,18 +75,28 @@ const ManagerChecklist = () => {
   };
 
   const copyPublicUrl = () => {
-    navigator.clipboard.writeText(publicUrl);
+    // Use the stored public_url from the database
+    const fullUrl = `${window.location.origin}${checklist?.public_url}`;
+    navigator.clipboard.writeText(fullUrl);
     toast.success("Public URL copied to clipboard");
   };
 
   const copyManagerUrl = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/${slug}/manage?key=${adminKey}`);
+    // Use the stored manager_url from the database
+    const fullUrl = `${window.location.origin}${checklist?.manager_url}`;
+    navigator.clipboard.writeText(fullUrl);
     toast.success("Manager URL copied to clipboard");
   };
 
   const refreshData = () => {
     refetch();
     toast.info("Refreshing data...");
+  };
+
+  // Function to get unclassified files
+  const getUnclassifiedFiles = () => {
+    if (!checklist?.files) return [];
+    return checklist.files.filter(file => file.status === 'unclassified');
   };
 
   if (isLoading) {
@@ -125,6 +129,8 @@ const ManagerChecklist = () => {
       </div>
     );
   }
+
+  const unclassifiedFiles = getUnclassifiedFiles();
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -159,7 +165,7 @@ const ManagerChecklist = () => {
             <CardContent>
               <div className="flex items-center gap-2">
                 <code className="bg-muted px-3 py-2 rounded-md flex-1 text-sm overflow-x-auto">
-                  {publicUrl}
+                  {window.location.origin}{checklist.public_url}
                 </code>
                 <Button size="icon" variant="outline" onClick={copyPublicUrl}>
                   <Copy className="h-4 w-4" />
@@ -226,6 +232,36 @@ const ManagerChecklist = () => {
               );
             })}
           </div>
+          
+          {unclassifiedFiles.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Unclassified Files</h2>
+              <div className="space-y-4">
+                {unclassifiedFiles.map(file => (
+                  <Card key={file.id}>
+                    <CardHeader>
+                      <div className="flex justify-between">
+                        <CardTitle className="text-lg">{file.filename}</CardTitle>
+                        <StatusBadge status="unclassified" />
+                      </div>
+                      <CardDescription>
+                        Uploaded {new Date(file.uploaded_at).toLocaleString()}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardFooter className="bg-muted/50">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDownload(file)}
+                      >
+                        <Download className="h-4 w-4 mr-1" /> Download
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <h3 className="font-medium text-blue-800">Manager Instructions</h3>

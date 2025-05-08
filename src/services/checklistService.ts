@@ -9,11 +9,15 @@ export async function createChecklist(items: Omit<ChecklistItem, 'id' | 'positio
     const slug = uuidv4().replace(/-/g, "").substring(0, 16);
     const admin_key = uuidv4().replace(/-/g, "").substring(0, 16);
     
+    // Create the public and manager URLs
+    const public_url = `/${slug}`;
+    const manager_url = `/${slug}/manage?key=${admin_key}`;
+    
     // Insert the checklist
     const { data: checklistData, error: checklistError } = await supabase
       .from('checklists')
-      .insert([{ slug, admin_key }])
-      .select('id, slug, admin_key, created_at')
+      .insert([{ slug, admin_key, public_url, manager_url }])
+      .select('id, slug, admin_key, public_url, manager_url, created_at')
       .single();
     
     if (checklistError) throw checklistError;
@@ -50,7 +54,7 @@ export async function getChecklist(slug: string, adminKey?: string) {
     // Get the checklist by slug
     const { data: checklistData, error: checklistError } = await supabase
       .from('checklists')
-      .select('id, slug, admin_key, created_at')
+      .select('id, slug, admin_key, public_url, manager_url, created_at')
       .eq('slug', slug)
       .single();
     
@@ -88,6 +92,8 @@ export async function getChecklist(slug: string, adminKey?: string) {
     const checklist: Checklist = {
       id: checklistData.id,
       slug: checklistData.slug,
+      public_url: checklistData.public_url,
+      manager_url: checklistData.manager_url,
       created_at: checklistData.created_at,
       items: itemsData,
       files: typedFilesData,
@@ -105,19 +111,22 @@ export async function getChecklist(slug: string, adminKey?: string) {
   }
 }
 
-export async function uploadFile(file: File, checklistSlug: string, itemId: string) {
+export async function uploadFile(file: File, checklistSlug: string) {
   try {
     // Get checklist ID from slug
     const { data: checklistData, error: checklistError } = await supabase
       .from('checklists')
-      .select('id')
+      .select('id, items:checklist_items(id, title, description)')
       .eq('slug', checklistSlug)
       .single();
     
     if (checklistError) throw checklistError;
     
-    // Upload file to storage
-    const filePath = `${checklistSlug}/${itemId}/${uuidv4()}.pdf`;
+    // Generate unique ID for the file
+    const fileId = uuidv4();
+    
+    // Upload file to storage with a unique path
+    const filePath = `${checklistSlug}/${fileId}.pdf`;
     const { data: storageData, error: storageError } = await supabase
       .storage
       .from('doccollect')
@@ -128,32 +137,141 @@ export async function uploadFile(file: File, checklistSlug: string, itemId: stri
     
     if (storageError) throw storageError;
     
-    // TODO: In a real implementation, we would call an Edge Function here
-    // to classify the file using AI, but for now we'll simulate it
-    // with a simple random classification
-    const status = Math.random() > 0.3 ? 'uploaded' as const : 'unclassified' as const;
+    // In a real implementation, we would extract text from the PDF here
+    // and use OpenAI's API to classify it based on checklist items
     
-    // Insert file record
-    const { data: fileData, error: fileError } = await supabase
+    // For now, we'll simulate AI classification with a simple algorithm
+    // In a complete implementation, this would be replaced with an Edge Function call
+    const items = checklistData.items as ChecklistItem[];
+    
+    // Check if any items already have files attached
+    const { data: existingFiles, error: existingFilesError } = await supabase
       .from('checklist_files')
-      .insert([{
-        checklist_id: checklistData.id,
-        item_id: itemId,
-        filename: file.name,
-        file_path: filePath,
-        status
-      }])
-      .select('id, item_id, filename, status, uploaded_at, file_path')
-      .single();
+      .select('item_id')
+      .eq('checklist_id', checklistData.id);
+      
+    if (existingFilesError) throw existingFilesError;
     
-    if (fileError) throw fileError;
+    // Filter out items that already have files
+    const availableItems = items.filter(item => 
+      !existingFiles.some(file => file.item_id === item.id)
+    );
     
-    return {
-      ...fileData,
-      status: fileData.status as "uploaded" | "unclassified"
-    } as ChecklistFile;
+    // If no items are available, mark as unclassified
+    if (availableItems.length === 0) {
+      // Insert file record marked as unclassified
+      const { data: fileData, error: fileError } = await supabase
+        .from('checklist_files')
+        .insert([{
+          checklist_id: checklistData.id,
+          item_id: null, // No item assigned
+          filename: file.name,
+          file_path: filePath,
+          status: 'unclassified'
+        }])
+        .select('id, item_id, filename, status, uploaded_at, file_path')
+        .single();
+      
+      if (fileError) throw fileError;
+      
+      return {
+        ...fileData,
+        status: fileData.status as "uploaded" | "unclassified"
+      } as ChecklistFile;
+    }
+    
+    // Simulate AI classification by using a simple heuristic:
+    // 1. If filename contains any keywords from item titles/descriptions, match to that item
+    // 2. Otherwise, randomly select an item with 70% chance, or mark as unclassified
+    
+    const fileName = file.name.toLowerCase();
+    
+    // Try to find a keyword match
+    const matchedItem = availableItems.find(item => {
+      const titleWords = item.title.toLowerCase().split(/\s+/);
+      const descWords = item.description ? item.description.toLowerCase().split(/\s+/) : [];
+      const allWords = [...titleWords, ...descWords];
+      
+      return allWords.some(word => 
+        word.length > 3 && fileName.includes(word)
+      );
+    });
+    
+    if (matchedItem) {
+      // We found a match based on keywords
+      const { data: fileData, error: fileError } = await supabase
+        .from('checklist_files')
+        .insert([{
+          checklist_id: checklistData.id,
+          item_id: matchedItem.id,
+          filename: file.name,
+          file_path: filePath,
+          status: 'uploaded'
+        }])
+        .select('id, item_id, filename, status, uploaded_at, file_path')
+        .single();
+      
+      if (fileError) throw fileError;
+      
+      return {
+        ...fileData,
+        status: fileData.status as "uploaded" | "unclassified"
+      } as ChecklistFile;
+    }
+    
+    // No keyword match, decide randomly with 70% chance of assignment
+    if (Math.random() <= 0.7) {
+      // Randomly select an item
+      const randomIndex = Math.floor(Math.random() * availableItems.length);
+      const selectedItem = availableItems[randomIndex];
+      
+      const { data: fileData, error: fileError } = await supabase
+        .from('checklist_files')
+        .insert([{
+          checklist_id: checklistData.id,
+          item_id: selectedItem.id,
+          filename: file.name,
+          file_path: filePath,
+          status: 'uploaded'
+        }])
+        .select('id, item_id, filename, status, uploaded_at, file_path')
+        .single();
+      
+      if (fileError) throw fileError;
+      
+      return {
+        ...fileData,
+        status: fileData.status as "uploaded" | "unclassified"
+      } as ChecklistFile;
+    } else {
+      // Mark as unclassified
+      const { data: fileData, error: fileError } = await supabase
+        .from('checklist_files')
+        .insert([{
+          checklist_id: checklistData.id,
+          item_id: null, // No item assigned
+          filename: file.name,
+          file_path: filePath,
+          status: 'unclassified'
+        }])
+        .select('id, item_id, filename, status, uploaded_at, file_path')
+        .single();
+      
+      if (fileError) throw fileError;
+      
+      return {
+        ...fileData,
+        status: fileData.status as "uploaded" | "unclassified"
+      } as ChecklistFile;
+    }
   } catch (error) {
     console.error("Error uploading file:", error);
+    
+    // Check for common errors to provide better user feedback
+    if (error.message && error.message.includes("duplicate key")) {
+      throw new Error("This item already has a file uploaded");
+    }
+    
     throw error;
   }
 }
