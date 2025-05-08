@@ -65,13 +65,20 @@ const ManagerChecklist = () => {
     try {
       const url = await getDownloadUrl(file.file_path);
       
-      // Create a temporary anchor element to trigger download
+      // Create a link element and configure it for downloading
       const a = document.createElement('a');
       a.href = url;
-      a.download = file.filename;
+      a.download = file.filename || 'download.pdf'; // Use filename or fallback
+      a.style.display = 'none'; // Hide the element
+      
+      // Add to DOM, trigger click, then remove
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      
+      // Small delay before cleanup to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(a);
+      }, 100);
       
       toast.success(`Downloading ${file.filename}`);
     } catch (error) {
