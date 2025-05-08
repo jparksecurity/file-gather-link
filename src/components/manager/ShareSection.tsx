@@ -48,7 +48,7 @@ const ShareSection: React.FC<ShareSectionProps> = ({ publicUrl, managerUrl }) =>
           </Button>
         </div>
       </CardContent>
-      <CardFooter className="border-t bg-muted/50 flex">
+      <CardFooter className="border-t bg-muted/50 flex mt-6 pt-6">
         <div className="text-sm text-muted-foreground">
           <p className="font-medium">
             <span className="text-amber-600">●</span> Important:
