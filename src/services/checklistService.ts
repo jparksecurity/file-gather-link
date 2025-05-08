@@ -111,7 +111,7 @@ export async function getChecklist(slug: string, adminKey?: string) {
   }
 }
 
-export async function uploadFile(file: File, checklistSlug: string) {
+export async function uploadFile(file: File, checklistSlug: string, itemId?: string) {
   try {
     // Get checklist ID and items from slug
     const { data: checklistData, error: checklistError } = await supabase
@@ -136,7 +136,46 @@ export async function uploadFile(file: File, checklistSlug: string) {
       });
     
     if (storageError) throw storageError;
+
+    // Direct upload to a specific item if itemId is provided
+    if (itemId) {
+      // Check if the item already has a file attached
+      const { data: existingFile, error: existingFileError } = await supabase
+        .from('checklist_files')
+        .select('id')
+        .eq('checklist_id', checklistData.id)
+        .eq('item_id', itemId)
+        .maybeSingle();
+      
+      if (existingFileError) throw existingFileError;
+      
+      // If there's already a file for this item, throw an error
+      if (existingFile) {
+        throw new Error("This item already has a file uploaded");
+      }
+      
+      // Insert file record for the specific item
+      const { data: fileData, error: fileError } = await supabase
+        .from('checklist_files')
+        .insert([{
+          checklist_id: checklistData.id,
+          item_id: itemId,
+          filename: file.name,
+          file_path: filePath,
+          status: 'uploaded'
+        }])
+        .select('id, item_id, filename, status, uploaded_at, file_path')
+        .single();
+      
+      if (fileError) throw fileError;
+      
+      return {
+        ...fileData,
+        status: fileData.status as "uploaded" | "unclassified"
+      } as ChecklistFile;
+    }
     
+    // If no itemId provided, continue with AI classification flow
     // Check if any items already have files attached
     const { data: existingFiles, error: existingFilesError } = await supabase
       .from('checklist_files')

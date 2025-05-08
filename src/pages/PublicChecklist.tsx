@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { 
   Card, 
@@ -16,16 +16,19 @@ import { FileCheck, AlertCircle, HelpCircle } from "lucide-react";
 import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlobalFileDropzone from "@/components/GlobalFileDropzone";
+import FileDropzone from "@/components/FileDropzone";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<"items" | "global">("items");
 
   const { data: checklist, isLoading, error } = useQuery({
     queryKey: ['checklist', slug],
@@ -34,9 +37,11 @@ const PublicChecklist = () => {
   });
 
   const uploadFileMutation = useMutation({
-    mutationFn: (file: File) => uploadFile(file, slug!),
+    mutationFn: ({ file, itemId }: { file: File, itemId?: string }) => uploadFile(file, slug!, itemId),
     onSuccess: (newFile: ChecklistFile) => {
-      toast.success("File uploaded and classified successfully!");
+      toast.success(newFile.status === 'unclassified' 
+        ? "File uploaded but couldn't be classified automatically" 
+        : "File uploaded successfully!");
       
       // Update the local cache with the new file
       queryClient.setQueryData<Checklist>(['checklist', slug], (old) => {
@@ -58,9 +63,13 @@ const PublicChecklist = () => {
     }
   });
 
-  const handleFileUpload = async (file: File) => {
-    toast.info("Uploading and classifying your file...");
-    uploadFileMutation.mutate(file);
+  const handleFileUpload = async (file: File, itemId?: string) => {
+    const message = itemId 
+      ? "Uploading file for specific requirement..." 
+      : "Uploading and classifying your file...";
+    
+    toast.info(message);
+    uploadFileMutation.mutate({ file, itemId });
   };
 
   const getItemStatus = (itemId: string) => {
@@ -73,6 +82,11 @@ const PublicChecklist = () => {
     if (itemFiles.some(file => file.status === 'uploaded')) return 'uploaded';
     
     return 'unclassified';
+  };
+
+  const isItemHasFile = (itemId: string) => {
+    if (!checklist?.files?.length) return false;
+    return checklist.files.some(file => file.item_id === itemId);
   };
 
   if (isLoading) {
@@ -116,49 +130,73 @@ const PublicChecklist = () => {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">Document Checklist</h1>
           <p className="mb-6 text-muted-foreground">
-            Please upload the requested PDFs. The system will automatically classify your documents.
+            Please upload the requested PDFs. You can upload directly to specific requirements or use the AI to automatically classify your documents.
           </p>
 
-          <div className="mb-8">
-            <GlobalFileDropzone onFileAccepted={handleFileUpload} />
-          </div>
-
-          <h2 className="text-xl font-semibold mb-4">Required Documents</h2>
-          <div className="space-y-4 mb-8">
-            {checklist.items.map((item) => {
-              const status = getItemStatus(item.id);
-              
-              return (
-                <Card key={item.id} className={status === 'uploaded' ? 'border-green-200' : ''}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{item.title}</CardTitle>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>
-                              <StatusBadge status={status} />
+          <Tabs defaultValue="items" value={activeTab} onValueChange={(v) => setActiveTab(v as "items" | "global")}>
+            <TabsList className="mb-6">
+              <TabsTrigger value="items">Upload to Specific Requirements</TabsTrigger>
+              <TabsTrigger value="global">AI Classification</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="items">
+              <h2 className="text-xl font-semibold mb-4">Required Documents</h2>
+              <div className="space-y-4 mb-8">
+                {checklist.items.map((item) => {
+                  const status = getItemStatus(item.id);
+                  const hasFile = isItemHasFile(item.id);
+                  
+                  return (
+                    <Card key={item.id} className={status === 'uploaded' ? 'border-green-200' : ''}>
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">{item.title}</CardTitle>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <StatusBadge status={status} />
+                                  {status === 'unclassified' && (
+                                    <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                                  )}
+                                </span>
+                              </TooltipTrigger>
                               {status === 'unclassified' && (
-                                <HelpCircle className="inline ml-1 h-4 w-4 text-amber-500" />
+                                <TooltipContent>
+                                  <p>AI couldn't classify this document with confidence</p>
+                                </TooltipContent>
                               )}
-                            </span>
-                          </TooltipTrigger>
-                          {status === 'unclassified' && (
-                            <TooltipContent>
-                              <p>AI couldn't classify this document with confidence</p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    {item.description && (
-                      <CardDescription>{item.description}</CardDescription>
-                    )}
-                  </CardHeader>
-                </Card>
-              );
-            })}
-          </div>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        {item.description && (
+                          <CardDescription>{item.description}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <FileDropzone 
+                          onFileAccepted={(file) => handleFileUpload(file, item.id)} 
+                          itemId={item.id}
+                          disabled={hasFile}
+                          className="border border-dashed rounded-md p-4 h-24"
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="global">
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4">AI-Powered Document Classification</h2>
+                <p className="mb-4 text-muted-foreground">
+                  Drop any document here and our AI will analyze and classify it to the correct requirement.
+                </p>
+                <GlobalFileDropzone onFileAccepted={(file) => handleFileUpload(file)} />
+              </div>
+            </TabsContent>
+          </Tabs>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <h3 className="font-medium text-blue-800">Important Notes</h3>

@@ -1,14 +1,13 @@
 
+import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useNavigate } from "react-router-dom";
-import { FileCheck } from "lucide-react";
+import { FileUp, CheckCircle2, Upload, FileCheck } from "lucide-react";
 
 const Index = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50">
       <header className="bg-white shadow-sm py-4">
         <div className="container flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -17,76 +16,125 @@ const Index = () => {
           </div>
         </div>
       </header>
-
-      <main className="container flex-1 py-12">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold tracking-tight mb-4">
-              Collect documents without the hassle
-            </h1>
-            <p className="text-xl text-muted-foreground">
-              Create a checklist, share a link, and receive organized PDFs — no signup required.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 mb-12">
-            <Card>
-              <CardHeader>
-                <CardTitle>For Document Collectors</CardTitle>
-                <CardDescription>
-                  Recruiters, mortgage officers, freelancers, and more
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc pl-5 space-y-2">
-                  <li>Create a checklist of up to 10 required PDFs</li>
-                  <li>Share a simple link with document providers</li>
-                  <li>Receive organized files automatically classified</li>
-                  <li>Download submitted documents from a private URL</li>
-                </ul>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full" onClick={() => navigate("/build")}>
-                  Create a Checklist
-                </Button>
-              </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>For Document Providers</CardTitle>
-                <CardDescription>
-                  Clients, applicants, candidates, and teammates
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc pl-5 space-y-2">
-                  <li>Receive a clear list of required documents</li>
-                  <li>Drag and drop PDFs directly onto each item</li>
-                  <li>Skip email threads and document naming conventions</li>
-                  <li>See confirmation when documents are received</li>
-                </ul>
-              </CardContent>
-              <CardFooter>
-                <p className="text-sm text-muted-foreground text-center w-full">
-                  No account needed — just upload when you receive a link
-                </p>
-              </CardFooter>
-            </Card>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-            <h2 className="text-2xl font-semibold mb-4">Ready to streamline your document collection?</h2>
-            <Button size="lg" onClick={() => navigate("/build")}>
-              Get Started — It's Free
+      
+      <main className="container py-12 flex flex-col gap-12">
+        <section className="text-center max-w-3xl mx-auto">
+          <h1 className="text-4xl font-extrabold mb-4">
+            Collect, organize and verify documents with ease
+          </h1>
+          <p className="text-xl text-muted-foreground mb-8">
+            Create a zero-signup document collection page and let AI automatically organize uploads for you.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Button asChild size="lg">
+              <Link to="/build">
+                <FileUp className="mr-2 h-5 w-5" />
+                Create Checklist
+              </Link>
             </Button>
           </div>
-        </div>
+        </section>
+
+        <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Create</CardTitle>
+              <CardDescription>
+                Create your document checklist with up to 10 requirements
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48 flex items-center justify-center rounded-md border-2 border-dashed p-4">
+                <div className="text-center space-y-2">
+                  <CheckCircle2 className="h-10 w-10 text-primary mx-auto" />
+                  <div className="text-sm text-muted-foreground">
+                    Define titles and descriptions<br />for each required document
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Share</CardTitle>
+              <CardDescription>
+                Share the public link with document providers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48 flex items-center justify-center rounded-md border-2 border-dashed p-4">
+                <div className="text-center space-y-2">
+                  <Upload className="h-10 w-10 text-primary mx-auto" />
+                  <div className="text-sm text-muted-foreground">
+                    Drag and drop PDFs directly onto each item<br />or use AI-powered classification
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Manage</CardTitle>
+              <CardDescription>
+                Use the private manager link to download documents
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48 flex items-center justify-center rounded-md border-2 border-dashed p-4">
+                <div className="text-center space-y-2">
+                  <FileCheck className="h-10 w-10 text-primary mx-auto" />
+                  <div className="text-sm text-muted-foreground">
+                    Track status and download<br />all submitted documents
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="max-w-3xl mx-auto bg-white rounded-lg shadow p-8">
+          <h2 className="text-2xl font-bold mb-4">How it works</h2>
+          <ol className="space-y-6 list-decimal pl-5">
+            <li className="pl-2">
+              <h3 className="text-lg font-semibold">Create your document checklist</h3>
+              <p className="text-muted-foreground">
+                Create a checklist with up to 10 required documents. Each item can have a title and description.
+              </p>
+            </li>
+            <li className="pl-2">
+              <h3 className="text-lg font-semibold">Share the public link</h3>
+              <p className="text-muted-foreground">
+                After publishing, you'll get two links: a public link for document providers to upload files, and a private link for you to manage submissions.
+              </p>
+            </li>
+            <li className="pl-2">
+              <h3 className="text-lg font-semibold">Let AI organize uploads</h3>
+              <p className="text-muted-foreground">
+                Document providers can either upload directly to specific requirements or use the AI classification that automatically routes documents to the correct requirement.
+              </p>
+            </li>
+            <li className="pl-2">
+              <h3 className="text-lg font-semibold">Download and verify</h3>
+              <p className="text-muted-foreground">
+                Use your private manager link to see submitted documents, download them with secure links, and track completion status.
+              </p>
+            </li>
+          </ol>
+          <div className="mt-8">
+            <Button asChild size="lg">
+              <Link to="/build">
+                Get Started
+              </Link>
+            </Button>
+          </div>
+        </section>
       </main>
 
-      <footer className="bg-white border-t py-6">
-        <div className="container text-center text-sm text-muted-foreground">
-          <p>© 2025 DocCollect MVP — Built with Lovable</p>
+      <footer className="bg-white border-t py-8">
+        <div className="container text-center text-muted-foreground">
+          <p>&copy; 2025 DocCollect. All rights reserved.</p>
         </div>
       </footer>
     </div>

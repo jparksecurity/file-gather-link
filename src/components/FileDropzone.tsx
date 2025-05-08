@@ -84,9 +84,9 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
   return (
     <div
       className={cn(
-        "dropzone",
-        isDragging && "active",
-        disabled && "disabled",
+        "transition-all",
+        isDragging && "ring-2 ring-primary bg-primary/5",
+        disabled && "opacity-50",
         className
       )}
       onDragOver={onDragOver}
@@ -104,15 +104,15 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
       <label
         htmlFor={`file-input-${itemId}`}
         className={cn(
-          "cursor-pointer flex flex-col items-center",
-          disabled && "cursor-not-allowed"
+          "flex flex-col items-center justify-center h-full w-full",
+          disabled ? "cursor-not-allowed" : "cursor-pointer"
         )}
       >
-        <Upload className="h-8 w-8 mb-3 text-gray-400" />
-        <span className="text-sm font-medium">
-          {disabled ? "Already uploaded" : "Drag & drop your PDF here"}
+        <Upload className="h-5 w-5 mb-1 text-gray-400" />
+        <span className="text-sm font-medium text-center">
+          {disabled ? "Already uploaded" : "Drop PDF here"}
         </span>
-        <span className="text-xs text-gray-500 mt-1">
+        <span className="text-xs text-gray-500 mt-0.5 text-center">
           {disabled ? "Contact administrator to replace" : "or click to browse"}
         </span>
       </label>
