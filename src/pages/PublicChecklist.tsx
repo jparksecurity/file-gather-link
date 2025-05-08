@@ -7,13 +7,12 @@ import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
 import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Import new components
+// Import components
 import Header from "@/components/public/Header";
-import AIClassificationTab from "@/components/public/AIClassificationTab";
-import ManualUploadTab from "@/components/public/ManualUploadTab";
+import GlobalFileDropzone from "@/components/GlobalFileDropzone";
 import ImportantNotes from "@/components/public/ImportantNotes";
+import FileManagementTable from "@/components/public/FileManagementTable";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -26,15 +25,16 @@ const PublicChecklist = () => {
     retry: 1,
   });
 
+  // Upload file mutation
   const uploadFileMutation = useMutation({
-    mutationFn: ({ file, itemId }: { file: File, itemId?: string }) => {
+    mutationFn: ({ file }: { file: File }) => {
       // Add file to the uploading state with a status
       const fileId = `${file.name}-${Date.now()}`;
-      setUploadingFiles(prev => ({ ...prev, [fileId]: itemId || 'global' }));
+      setUploadingFiles(prev => ({ ...prev, [fileId]: 'global' }));
       
-      return uploadFile(file, slug!, itemId)
+      return uploadFile(file, slug!)
         .finally(() => {
-          // Remove from uploading state when done (regardless of success/failure)
+          // Remove from uploading state when done
           setUploadingFiles(prev => {
             const newState = { ...prev };
             delete newState[fileId];
@@ -67,13 +67,142 @@ const PublicChecklist = () => {
     }
   });
 
-  const handleFileUpload = async (file: File, itemId?: string) => {
-    const message = itemId 
-      ? "Uploading file for specific requirement..." 
-      : "Uploading and classifying your file...";
-    
-    toast.info(message);
-    uploadFileMutation.mutate({ file, itemId });
+  // Move file mutation
+  const moveFileMutation = useMutation({
+    mutationFn: async ({ fileId, newItemId }: { fileId: string; newItemId: string }) => {
+      // This would call a backend service to move the file to a different category
+      // For now, we'll mock the API call and just return a successful response
+      try {
+        const response = await fetch(`/api/files/${fileId}/move`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            slug: slug!, 
+            newItemId: newItemId === 'unclassified' ? null : newItemId 
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to move file');
+        }
+        
+        // Return file ID and new item ID for optimistic update
+        return { fileId, newItemId: newItemId === 'unclassified' ? null : newItemId };
+      } catch (error) {
+        console.error('Error moving file:', error);
+        throw error;
+      }
+    },
+    onMutate: async ({ fileId, newItemId }) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: ['checklist', slug] });
+      const previousChecklist = queryClient.getQueryData<Checklist>(['checklist', slug]);
+      
+      if (previousChecklist) {
+        const newFiles = previousChecklist.files?.map(file => {
+          if (file.id === fileId) {
+            return {
+              ...file,
+              item_id: newItemId === 'unclassified' ? null : newItemId,
+              status: newItemId === 'unclassified' ? 'unclassified' : 'uploaded'
+            };
+          }
+          return file;
+        });
+        
+        queryClient.setQueryData<Checklist>(['checklist', slug], old => {
+          if (!old) return old;
+          return { ...old, files: newFiles };
+        });
+      }
+      
+      return { previousChecklist };
+    },
+    onError: (err, _, context) => {
+      toast.error('Failed to move file');
+      if (context?.previousChecklist) {
+        queryClient.setQueryData(['checklist', slug], context.previousChecklist);
+      }
+    },
+    onSuccess: (result) => {
+      const targetName = result.newItemId 
+        ? checklist?.items.find(item => item.id === result.newItemId)?.title 
+        : 'Unclassified';
+      toast.success(`File moved to ${targetName}`);
+    },
+  });
+
+  // Delete files mutation
+  const deleteFilesMutation = useMutation({
+    mutationFn: async (fileIds: string[]) => {
+      // This would call a backend service to delete the files
+      // For now, we'll mock the API call
+      try {
+        const response = await fetch(`/api/files/delete-batch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            slug: slug!,
+            fileIds
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to delete files');
+        }
+        
+        return fileIds;
+      } catch (error) {
+        console.error('Error deleting files:', error);
+        throw error;
+      }
+    },
+    onMutate: async (fileIds) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: ['checklist', slug] });
+      const previousChecklist = queryClient.getQueryData<Checklist>(['checklist', slug]);
+      
+      if (previousChecklist) {
+        const newFiles = previousChecklist.files?.filter(file => !fileIds.includes(file.id));
+        
+        queryClient.setQueryData<Checklist>(['checklist', slug], old => {
+          if (!old) return old;
+          return { ...old, files: newFiles };
+        });
+      }
+      
+      return { previousChecklist };
+    },
+    onError: (err, _, context) => {
+      toast.error('Failed to delete files');
+      if (context?.previousChecklist) {
+        queryClient.setQueryData(['checklist', slug], context.previousChecklist);
+      }
+    },
+    onSuccess: (fileIds) => {
+      toast.success(`${fileIds.length} ${fileIds.length === 1 ? 'file' : 'files'} deleted successfully`);
+    },
+  });
+
+  const handleFileUpload = async (file: File) => {
+    toast.info("Uploading and classifying your file...");
+    uploadFileMutation.mutate({ file });
+  };
+
+  const handleMoveFile = (fileId: string, newItemId: string) => {
+    if (newItemId) {
+      moveFileMutation.mutate({ fileId, newItemId });
+    }
+  };
+
+  const handleDeleteFiles = (fileIds: string[]) => {
+    if (fileIds.length > 0) {
+      deleteFilesMutation.mutate(fileIds);
+    }
   };
 
   const getItemStatus = (itemId: string) => {
@@ -86,22 +215,6 @@ const PublicChecklist = () => {
     if (itemFiles.some(file => file.status === 'uploaded')) return 'uploaded';
     
     return 'unclassified';
-  };
-
-  const isItemHasFile = (itemId: string) => {
-    if (!checklist?.files?.length) return false;
-    return checklist.files.some(file => file.item_id === itemId);
-  };
-
-  // Function to get unclassified files
-  const getUnclassifiedFiles = () => {
-    if (!checklist?.files) return [];
-    return checklist.files.filter(file => file.status === 'unclassified' && file.item_id === null);
-  };
-
-  // Check if a specific item is currently uploading
-  const isItemUploading = (itemId: string) => {
-    return Object.values(uploadingFiles).includes(itemId);
   };
 
   // Check if there's a global upload in progress
@@ -135,47 +248,38 @@ const PublicChecklist = () => {
     );
   }
 
-  const unclassifiedFiles = getUnclassifiedFiles();
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
 
       <main className="container py-8 flex-1">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">Document Checklist</h1>
           <p className="mb-6 text-muted-foreground">
-            Please upload the requested PDFs. You can use AI to automatically classify your documents or upload directly to specific requirements.
+            Please upload the requested PDFs. Our AI will automatically analyze and classify your documents.
           </p>
 
-          <Tabs defaultValue="global">
-            <TabsList className="mb-6">
-              <TabsTrigger value="global">AI Classification</TabsTrigger>
-              <TabsTrigger value="items">Manual Upload</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="global">
-              <AIClassificationTab 
-                items={checklist.items}
-                getItemStatus={getItemStatus}
-                handleFileUpload={handleFileUpload}
-                isGlobalUploading={isGlobalUploading()}
-                unclassifiedFiles={unclassifiedFiles}
-              />
-            </TabsContent>
-            
-            <TabsContent value="items">
-              <ManualUploadTab 
-                items={checklist.items}
-                getItemStatus={getItemStatus}
-                isItemHasFile={isItemHasFile}
-                isItemUploading={isItemUploading}
-                handleFileUpload={handleFileUpload}
-              />
-            </TabsContent>
-          </Tabs>
+          <div className="mb-8">
+            {isGlobalUploading() ? (
+              <div className="border border-primary/20 bg-primary/5 rounded-lg p-8 text-center">
+                <div className="animate-pulse text-primary">
+                  Processing your document...
+                </div>
+              </div>
+            ) : (
+              <GlobalFileDropzone onFileAccepted={handleFileUpload} />
+            )}
+          </div>
           
-          {/* Added extra spacing with mt-12 class before the ImportantNotes component */}
+          <FileManagementTable 
+            items={checklist.items}
+            files={checklist.files || []}
+            getItemStatus={getItemStatus}
+            isGlobalUploading={isGlobalUploading()}
+            onMoveFile={handleMoveFile}
+            onDeleteFiles={handleDeleteFiles}
+          />
+          
           <div className="mt-12">
             <ImportantNotes />
           </div>
