@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Checklist, ChecklistItem, ChecklistFile } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -237,7 +238,12 @@ export async function uploadFile(file: File, checklistSlug: string, itemId?: str
       
       if (functionError) {
         console.error("Function invocation error:", functionError);
-        throw new Error(`Classification failed: ${functionError.message}`);
+        throw new Error(`Classification failed: ${functionError.message || 'Unknown error'}`);
+      }
+      
+      if (!classificationResult) {
+        console.error("Empty classification result");
+        throw new Error("No classification result returned");
       }
       
       console.log("Classification result:", classificationResult);
