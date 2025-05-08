@@ -171,12 +171,13 @@ const ChecklistBuilder = () => {
             </p>
           </div>
           
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
-            <h3 className="font-medium text-yellow-800">Important Notes</h3>
-            <ul className="list-disc list-inside text-sm text-yellow-700 mt-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 my-8">
+            <h3 className="font-medium text-blue-800 mb-2">Important Notes</h3>
+            <ul className="list-disc list-inside text-sm text-blue-700 space-y-1">
               <li>After publishing, the checklist cannot be modified</li>
               <li>Save your manager URL — it's only shown once</li>
               <li>Files are automatically classified using AI</li>
+              <li>Only PDF files are accepted</li>
               <li>Maximum file size is 100 MB per document</li>
             </ul>
           </div>

@@ -40,7 +40,7 @@ const Index = () => {
             <CardHeader>
               <CardTitle>Create</CardTitle>
               <CardDescription>
-                Create your document checklist with up to 10 requirements
+                Create your document checklist with up to 100 requirements
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -100,7 +100,7 @@ const Index = () => {
             <li className="pl-2">
               <h3 className="text-lg font-semibold">Create your document checklist</h3>
               <p className="text-muted-foreground">
-                Create a checklist with up to 10 required documents. Each item can have a title and description.
+                Create a checklist with up to 100 required documents. Each item can have a title and description.
               </p>
             </li>
             <li className="pl-2">
