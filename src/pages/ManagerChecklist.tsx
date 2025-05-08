@@ -83,17 +83,12 @@ const ManagerChecklist = () => {
         file.filename
       );
 
-      // Create a temporary anchor element
+      // Create a temporary link with the download attribute set
       const link = document.createElement('a');
       link.href = signedUrl;
+      link.setAttribute('download', downloadFilename || file.filename);
       
-      // Use the combined filename if available
-      if (downloadFilename) {
-        link.download = downloadFilename;
-      } else {
-        link.download = file.filename;
-      }
-      
+      // Append to body, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

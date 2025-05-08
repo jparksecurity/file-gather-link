@@ -307,16 +307,7 @@ export async function uploadFile(file: File, checklistSlug: string, itemId?: str
 
 export async function getDownloadUrl(filePath: string, itemTitle?: string, filename?: string) {
   try {
-    // Create a signed URL with download flag set to true
-    const { data, error } = await supabase
-      .storage
-      .from('doccollect')
-      .createSignedUrl(filePath, 60 * 60, {
-        download: true // Force download instead of display in browser
-      }); 
-    
-    if (error) throw error;
-    
+    // Create a signed URL with download flag set to true and filename parameter
     let downloadFilename = filename;
     
     // If we have both an item title and filename, combine them
@@ -324,9 +315,18 @@ export async function getDownloadUrl(filePath: string, itemTitle?: string, filen
       downloadFilename = `${itemTitle} - ${filename}`;
     }
     
+    const { data, error } = await supabase
+      .storage
+      .from('doccollect')
+      .createSignedUrl(filePath, 60 * 60, {
+        download: downloadFilename, // Pass the formatted filename directly to the download parameter
+      }); 
+    
+    if (error) throw error;
+    
     return {
       signedUrl: data.signedUrl,
-      downloadFilename: downloadFilename
+      downloadFilename
     };
   } catch (error) {
     console.error("Error generating download URL:", error);
