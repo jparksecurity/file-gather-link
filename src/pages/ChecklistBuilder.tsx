@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
@@ -11,6 +10,7 @@ import { toast } from "sonner";
 import { ChecklistItem } from "@/types/checklist";
 import { Trash, Plus, FileCheck } from "lucide-react";
 import { createChecklist } from "@/services/checklistService";
+import Header from "@/components/Header";
 
 const ChecklistBuilder = () => {
   const navigate = useNavigate();
@@ -89,14 +89,7 @@ const ChecklistBuilder = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white shadow-sm py-4">
-        <div className="container flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileCheck className="size-6 text-primary" />
-            <h1 className="text-xl font-bold">DocCollect</h1>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="container py-8 flex-1">
         <div className="max-w-3xl mx-auto">

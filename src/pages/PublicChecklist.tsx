@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -9,7 +8,7 @@ import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Import components
-import Header from "@/components/public/Header";
+import Header from "@/components/Header";
 import GlobalFileDropzone from "@/components/GlobalFileDropzone";
 import ImportantNotes from "@/components/public/ImportantNotes";
 import FileManagementTable from "@/components/public/FileManagementTable";
