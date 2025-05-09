@@ -92,31 +92,42 @@ async function classifyDocument(openai: OpenAI, base64Pdf: string, filename: str
     
     console.log("Using PDF content for classification");
     
+    // Create the prompt for OpenAI
+    const messages = [
+      {
+        role: "system",
+        content: "You are an AI document classifier. You will receive a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to based on its content. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `Please classify this PDF document into one of these categories:\n\n${itemsText}\n\nWhich category does this document most likely belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
+          },
+          {
+            type: "file",
+            file: {
+              filename: filename,
+              file_data: `data:application/pdf;base64,${base64Pdf}`
+            }
+          }
+        ]
+      }
+    ];
+    
+    // Log the prompt structure for debugging (without the base64 data for brevity)
+    const debugMessages = JSON.parse(JSON.stringify(messages));
+    if (debugMessages[1]?.content?.[1]?.file?.file_data) {
+      // Replace the base64 data with a placeholder to avoid huge logs
+      debugMessages[1].content[1].file.file_data = '[BASE64_PDF_DATA]';
+    }
+    console.log("OpenAI prompt structure:", JSON.stringify(debugMessages, null, 2));
+    
     // Call OpenAI with the PDF content and proper formatting
     const chatCompletion = await openai.chat.completions.create({
       model: "gpt-4.1-nano", // Updated to gpt-4.1-nano per the PRD
-      messages: [
-        {
-          role: "system",
-          content: "You are an AI document classifier. You will receive a PDF document and a list of possible document categories. Your task is to determine which category the document belongs to based on its content. Return only the ID of the matching category, or 'unclassified' if you cannot determine a match with confidence."
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Please classify this PDF document into one of these categories:\n\n${itemsText}\n\nWhich category does this document most likely belong to? Reply ONLY with the ID of the matching category, or "unclassified" if you cannot determine a match.`
-            },
-            {
-              type: "file",
-              file: {
-                filename: filename,
-                file_data: `data:application/pdf;base64,${base64Pdf}`
-              }
-            }
-          ]
-        }
-      ],
+      messages: messages,
       temperature: 0.3,
       max_tokens: 50
     });
