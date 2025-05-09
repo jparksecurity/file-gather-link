@@ -218,7 +218,7 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
                           <div className="flex flex-col space-y-2">
                             {itemFiles.map(file => (
                               <Select 
-                                key={file.id}
+                                key={`select-${file.id}`}
                                 onValueChange={(value) => handleMoveFile(file.id, value)}
                                 defaultValue="move"
                               >
@@ -282,6 +282,7 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
                         </TableCell>
                         <TableCell>
                           <Select 
+                            key={`select-${file.id}`}
                             onValueChange={(value) => handleMoveFile(file.id, value)}
                             defaultValue="assign"
                           >

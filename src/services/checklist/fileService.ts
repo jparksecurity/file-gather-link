@@ -220,6 +220,8 @@ export async function getDownloadUrl(filePath: string, itemTitle?: string, filen
 
 export async function moveFile(fileId: string, newItemId: string | null, slug: string) {
   try {
+    console.log(`Moving file ${fileId} to item ${newItemId} in checklist ${slug}`);
+    
     // Get checklist ID from slug
     const { data: checklistData, error: checklistError } = await supabase
       .from('checklists')
@@ -227,60 +229,107 @@ export async function moveFile(fileId: string, newItemId: string | null, slug: s
       .eq('slug', slug)
       .single();
     
-    if (checklistError) throw checklistError;
-    if (!checklistData) throw new Error("Checklist not found");
+    if (checklistError) {
+      console.error("Checklist error:", checklistError);
+      throw checklistError;
+    }
     
-    // Check if the file exists
-    const { data: fileExists, error: fileExistsError } = await supabase
-      .from('checklist_files')
-      .select('id')
-      .eq('id', fileId)
-      .single();
+    if (!checklistData) {
+      console.error("No checklist found with slug:", slug);
+      throw new Error("Checklist not found");
+    }
     
-    if (fileExistsError) throw fileExistsError;
-    if (!fileExists) throw new Error("File not found");
+    console.log("Found checklist:", checklistData.id);
     
-    // If moving to a specific item, check if that item already has a file
+    // Check if the target item exists when moving to a specific item
     if (newItemId) {
+      const { data: itemExists, error: itemError } = await supabase
+        .from('checklist_items')
+        .select('id')
+        .eq('id', newItemId)
+        .eq('checklist_id', checklistData.id)
+        .maybeSingle();
+      
+      if (itemError) {
+        console.error("Item check error:", itemError);
+        throw itemError;
+      }
+      
+      if (!itemExists) {
+        console.error("Target item not found:", newItemId);
+        throw new Error("Target item not found");
+      }
+      
+      console.log("Target item exists:", newItemId);
+      
+      // Check if the target item already has a file
       const { data: existingFile, error: existingFileError } = await supabase
         .from('checklist_files')
         .select('id')
         .eq('checklist_id', checklistData.id)
         .eq('item_id', newItemId)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no rows are found
+        .maybeSingle();
       
-      if (existingFileError) throw existingFileError;
+      if (existingFileError) {
+        console.error("Existing file check error:", existingFileError);
+        throw existingFileError;
+      }
       
-      // If there's already a file for this item, throw an error
       if (existingFile) {
+        console.error("Item already has a file:", newItemId);
         throw new Error("This item already has a file uploaded");
       }
+      
+      console.log("Item does not have a file yet, can proceed with update");
     }
     
+    // Check if the file exists and belongs to this checklist
+    const { data: fileData, error: fileExistsError } = await supabase
+      .from('checklist_files')
+      .select('id')
+      .eq('id', fileId)
+      .eq('checklist_id', checklistData.id)
+      .maybeSingle();
+    
+    if (fileExistsError) {
+      console.error("File exists check error:", fileExistsError);
+      throw fileExistsError;
+    }
+    
+    if (!fileData) {
+      console.error("File not found or does not belong to this checklist");
+      throw new Error("File not found or does not belong to this checklist");
+    }
+    
+    console.log("File exists and belongs to this checklist:", fileId);
+    
     // Update the file record with the new item ID
-    const { data, error: updateError } = await supabase
+    const { data: updatedFile, error: updateError } = await supabase
       .from('checklist_files')
       .update({
         item_id: newItemId,
         status: newItemId ? 'uploaded' : 'unclassified'
       })
       .eq('id', fileId)
-      .eq('checklist_id', checklistData.id) // Ensure we're updating a file that belongs to this checklist
-      .select('id, item_id, filename, status, uploaded_at, file_path')
-      .maybeSingle(); // Use maybeSingle to avoid errors when no rows are found
+      .eq('checklist_id', checklistData.id)
+      .select()
+      .single();
     
     if (updateError) {
       console.error("Update error details:", updateError);
       throw new Error(`Failed to update file: ${updateError.message}`);
     }
     
-    if (!data) {
+    if (!updatedFile) {
+      console.error("No file was updated");
       throw new Error("No file was updated - it might not exist or belong to this checklist");
     }
     
+    console.log("File successfully updated:", updatedFile);
+    
     return {
-      ...data,
-      status: data.status as "uploaded" | "unclassified"
+      ...updatedFile,
+      status: updatedFile.status as "uploaded" | "unclassified"
     } as ChecklistFile;
   } catch (error) {
     console.error("Error moving file:", error);

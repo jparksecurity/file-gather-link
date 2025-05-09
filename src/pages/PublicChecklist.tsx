@@ -75,6 +75,8 @@ const PublicChecklist = () => {
       }
       
       try {
+        console.log(`Moving file ${fileId} to ${newItemId} in checklist ${slug}`);
+        
         // Use the moveFile service function
         const result = await moveFile(
           fileId, 
@@ -83,7 +85,7 @@ const PublicChecklist = () => {
         );
         
         return result;
-      } catch (error) {
+      } catch (error: any) {
         console.error("Move file error:", error);
         throw error;
       }
@@ -113,11 +115,24 @@ const PublicChecklist = () => {
       
       return { previousChecklist };
     },
-    onError: (err: any, _, context) => {
+    onError: (err: any, variables, context) => {
       console.error("Move file error:", err);
       
       // Display a more specific error message
-      const errorMessage = err?.message || "Failed to move file";
+      let errorMessage = "Failed to move file";
+      if (err?.message) {
+        errorMessage = err.message;
+        
+        // Map some common errors to user-friendly messages
+        if (err.message.includes("already has a file")) {
+          errorMessage = "This requirement already has a file uploaded";
+        } else if (err.message.includes("not found")) {
+          errorMessage = "The selected item or file was not found";
+        } else if (err.message.includes("does not belong")) {
+          errorMessage = "This file cannot be moved to the selected location";
+        }
+      }
+      
       toast.error(errorMessage);
       
       // Restore previous data
@@ -131,7 +146,6 @@ const PublicChecklist = () => {
         : 'Unclassified';
       toast.success(`File moved to ${targetName}`);
       
-      // Fix: Use the proper type for invalidateQueries
       queryClient.invalidateQueries({
         queryKey: ['checklist', slug]
       });
