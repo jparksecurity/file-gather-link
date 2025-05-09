@@ -1,10 +1,9 @@
-
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import { toast } from "sonner";
-import { AlertCircle, List } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { getChecklist, uploadFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -13,8 +12,6 @@ import Header from "@/components/Header";
 import GlobalFileDropzone from "@/components/GlobalFileDropzone";
 import ImportantNotes from "@/components/public/ImportantNotes";
 import FileManagementTable from "@/components/public/FileManagementTable";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import StatusBadge from "@/components/StatusBadge";
 
 const PublicChecklist = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -250,6 +247,14 @@ const PublicChecklist = () => {
     );
   }
 
+  // Organize files by item
+  const getFilesByItemId = (itemId: string) => {
+    return checklist.files?.filter(file => file.item_id === itemId) || [];
+  };
+
+  // Get unclassified files
+  const unclassifiedFiles = checklist.files?.filter(file => !file.item_id) || [];
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
@@ -260,31 +265,6 @@ const PublicChecklist = () => {
           <p className="mb-6 text-muted-foreground">
             Please upload the requested PDFs. Our AI will automatically analyze and classify your documents.
           </p>
-
-          {/* Required Documents List - Added this section to show requirements clearly */}
-          <Card className="mb-8">
-            <CardHeader className="bg-primary/5 border-b">
-              <CardTitle className="flex items-center gap-2">
-                <List className="h-5 w-5" /> 
-                Required Documents
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <ul className="space-y-4">
-                {checklist.items.map((item) => (
-                  <li key={item.id} className="flex justify-between items-center p-3 border rounded-lg bg-white">
-                    <div>
-                      <p className="font-medium">{item.title}</p>
-                      {item.description && (
-                        <p className="text-sm text-muted-foreground">{item.description}</p>
-                      )}
-                    </div>
-                    <StatusBadge status={getItemStatus(item.id)} />
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
 
           <div className="mb-8">
             {isGlobalUploading() ? (
@@ -302,6 +282,8 @@ const PublicChecklist = () => {
             items={checklist.items}
             files={checklist.files || []}
             getItemStatus={getItemStatus}
+            getFilesByItemId={getFilesByItemId}
+            unclassifiedFiles={unclassifiedFiles}
             isGlobalUploading={isGlobalUploading()}
             onMoveFile={handleMoveFile}
             onDeleteFiles={handleDeleteFiles}
