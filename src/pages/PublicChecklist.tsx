@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checklist, ChecklistFile } from "@/types/checklist";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
-import { getChecklist, uploadFile } from "@/services/checklistService";
+import { getChecklist, uploadFile, moveFile } from "@/services/checklistService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Import components
@@ -69,30 +69,12 @@ const PublicChecklist = () => {
   // Move file mutation
   const moveFileMutation = useMutation({
     mutationFn: async ({ fileId, newItemId }: { fileId: string; newItemId: string }) => {
-      // This would call a backend service to move the file to a different category
-      // For now, we'll mock the API call and just return a successful response
-      try {
-        const response = await fetch(`/api/files/${fileId}/move`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            slug: slug!, 
-            newItemId: newItemId === 'unclassified' ? null : newItemId 
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to move file');
-        }
-        
-        // Return file ID and new item ID for optimistic update
-        return { fileId, newItemId: newItemId === 'unclassified' ? null : newItemId };
-      } catch (error) {
-        console.error('Error moving file:', error);
-        throw error;
-      }
+      // Use the new moveFile service function
+      return moveFile(
+        fileId, 
+        newItemId === 'unclassified' ? null : newItemId,
+        slug!
+      );
     },
     onMutate: async ({ fileId, newItemId }) => {
       // Optimistic update
@@ -126,8 +108,8 @@ const PublicChecklist = () => {
       }
     },
     onSuccess: (result) => {
-      const targetName = result.newItemId 
-        ? checklist?.items.find(item => item.id === result.newItemId)?.title 
+      const targetName = result.item_id 
+        ? checklist?.items.find(item => item.id === result.item_id)?.title 
         : 'Unclassified';
       toast.success(`File moved to ${targetName}`);
     },
@@ -193,7 +175,7 @@ const PublicChecklist = () => {
   };
 
   const handleMoveFile = (fileId: string, newItemId: string) => {
-    if (newItemId) {
+    if (newItemId && newItemId !== "move" && newItemId !== "assign") {
       moveFileMutation.mutate({ fileId, newItemId });
     }
   };

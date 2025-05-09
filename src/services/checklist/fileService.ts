@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { ChecklistFile, ChecklistItem } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -215,6 +214,57 @@ export async function getDownloadUrl(filePath: string, itemTitle?: string, filen
     };
   } catch (error) {
     console.error("Error generating download URL:", error);
+    throw error;
+  }
+}
+
+export async function moveFile(fileId: string, newItemId: string | null, slug: string) {
+  try {
+    // Get checklist ID from slug
+    const { data: checklistData, error: checklistError } = await supabase
+      .from('checklists')
+      .select('id')
+      .eq('slug', slug)
+      .single();
+    
+    if (checklistError) throw checklistError;
+    
+    // If moving to a specific item, check if that item already has a file
+    if (newItemId) {
+      const { data: existingFile, error: existingFileError } = await supabase
+        .from('checklist_files')
+        .select('id')
+        .eq('checklist_id', checklistData.id)
+        .eq('item_id', newItemId)
+        .maybeSingle();
+      
+      if (existingFileError) throw existingFileError;
+      
+      // If there's already a file for this item, throw an error
+      if (existingFile) {
+        throw new Error("This item already has a file uploaded");
+      }
+    }
+    
+    // Update the file record with the new item ID
+    const { data: updatedFile, error: updateError } = await supabase
+      .from('checklist_files')
+      .update({
+        item_id: newItemId,
+        status: newItemId ? 'uploaded' : 'unclassified'
+      })
+      .eq('id', fileId)
+      .select('id, item_id, filename, status, uploaded_at, file_path')
+      .single();
+    
+    if (updateError) throw updateError;
+    
+    return {
+      ...updatedFile,
+      status: updatedFile.status as "uploaded" | "unclassified"
+    } as ChecklistFile;
+  } catch (error) {
+    console.error("Error moving file:", error);
     throw error;
   }
 }
