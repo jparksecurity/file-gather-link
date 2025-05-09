@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -81,29 +82,74 @@ const ManagerChecklist: React.FC = () => {
       return;
     }
 
-    toast.info("Preparing all files for download...");
+    const files = [...(checklist.files || [])];
+    const totalFiles = files.length;
+    
+    toast.info(`Preparing ${totalFiles} files for download...`);
     
     try {
-      // Download each file with a small delay to prevent browser overload
-      const files = [...(checklist.files || [])];
-      
-      // Create a counter for the download progress
-      let downloadedCount = 0;
-      const totalFiles = files.length;
-      
-      for (const file of files) {
-        await handleDownload(file);
-        downloadedCount++;
-        
-        // Add a small delay between downloads to prevent overwhelming the browser
-        if (downloadedCount < totalFiles) {
+      // Create an array of promises for all downloads
+      const downloadPromises = files.map(async (file, index) => {
+        try {
+          // Add a delay based on the index to space out downloads
+          await new Promise(resolve => setTimeout(resolve, index * 1000));
+          
+          // Get the associated item title if this file is classified
+          let itemTitle: string | undefined;
+          
+          if (file.item_id) {
+            // Find the item associated with this file to get its title
+            const associatedItem = checklist?.items.find(item => item.id === file.item_id);
+            if (associatedItem) {
+              itemTitle = associatedItem.title;
+            }
+          } else {
+            // For unclassified files, use "Unclassified" as the prefix
+            itemTitle = "Unclassified";
+          }
+          
+          // Get the download URL and suggested filename
+          const { signedUrl, downloadFilename } = await getDownloadUrl(
+            file.file_path, 
+            itemTitle, 
+            file.filename
+          );
+  
+          // Create a temporary link with the download attribute set
+          const link = document.createElement('a');
+          link.href = signedUrl;
+          link.setAttribute('download', downloadFilename || file.filename);
+          
+          // Append to body, click, and remove
+          document.body.appendChild(link);
+          link.click();
+          
+          // Give the browser a moment to initiate the download before removing the link
           await new Promise(resolve => setTimeout(resolve, 300));
+          document.body.removeChild(link);
+          
+          console.log(`Downloaded file ${index + 1}/${totalFiles}: ${downloadFilename || file.filename}`);
+          return true;
+        } catch (err) {
+          console.error(`Error downloading file ${index + 1}/${totalFiles}:`, err);
+          return false;
+        }
+      });
+      
+      // Wait for all downloads to finish or fail
+      const results = await Promise.all(downloadPromises);
+      const successCount = results.filter(Boolean).length;
+      
+      if (successCount === totalFiles) {
+        toast.success(`Downloaded all ${totalFiles} files`);
+      } else {
+        toast.success(`Downloaded ${successCount} of ${totalFiles} files`);
+        if (successCount < totalFiles) {
+          toast.error(`Failed to download ${totalFiles - successCount} files`);
         }
       }
-      
-      toast.success(`Downloaded all ${files.length} files`);
     } catch (error) {
-      console.error("Error downloading all files:", error);
+      console.error("Error in download all files operation:", error);
       toast.error("Failed to download all files. Please try individually.");
     }
   };

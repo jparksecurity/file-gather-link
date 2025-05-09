@@ -54,6 +54,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
     return unclassifiedFile || null;
   };
 
+  // Count the total number of downloadable files
+  const totalDownloadableFiles = checklist.files?.length || 0;
+
   return (
     <div className="space-y-6 mb-8">
       <div className="flex items-center justify-between mb-4">
@@ -64,7 +67,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           onClick={onDownloadAll}
           disabled={!checklist.files?.length}
         >
-          <FilesIcon className="h-4 w-4 mr-1" /> Download All Files
+          <FilesIcon className="h-4 w-4 mr-1" /> Download All Files ({totalDownloadableFiles})
         </Button>
       </div>
       
