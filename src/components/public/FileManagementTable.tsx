@@ -218,13 +218,13 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
                               <Select 
                                 key={file.id}
                                 onValueChange={(value) => handleMoveFile(file.id, value)}
-                                defaultValue=""
+                                defaultValue="move"
                               >
                                 <SelectTrigger className="w-[130px] h-8">
                                   <SelectValue placeholder="Move..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">Move to...</SelectItem>
+                                  <SelectItem value="move">Move to...</SelectItem>
                                   {items.map(item => (
                                     <SelectItem key={item.id} value={item.id} disabled={item.id === file.item_id}>
                                       {item.title}
@@ -279,13 +279,13 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
                         <TableCell>
                           <Select 
                             onValueChange={(value) => handleMoveFile(file.id, value)}
-                            defaultValue=""
+                            defaultValue="assign"
                           >
                             <SelectTrigger className="w-[130px] h-8">
                               <SelectValue placeholder="Classify..." />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Assign to...</SelectItem>
+                              <SelectItem value="assign">Assign to...</SelectItem>
                               {items.map(item => (
                                 <SelectItem key={item.id} value={item.id}>
                                   {item.title}
