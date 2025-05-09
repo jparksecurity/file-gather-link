@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { ChecklistFile, ChecklistItem } from "@/types/checklist";
 import { v4 as uuidv4 } from "uuid";
@@ -229,6 +228,17 @@ export async function moveFile(fileId: string, newItemId: string | null, slug: s
       .single();
     
     if (checklistError) throw checklistError;
+    if (!checklistData) throw new Error("Checklist not found");
+    
+    // Check if the file exists
+    const { data: fileExists, error: fileExistsError } = await supabase
+      .from('checklist_files')
+      .select('id')
+      .eq('id', fileId)
+      .single();
+    
+    if (fileExistsError) throw fileExistsError;
+    if (!fileExists) throw new Error("File not found");
     
     // If moving to a specific item, check if that item already has a file
     if (newItemId) {
@@ -237,7 +247,7 @@ export async function moveFile(fileId: string, newItemId: string | null, slug: s
         .select('id')
         .eq('checklist_id', checklistData.id)
         .eq('item_id', newItemId)
-        .maybeSingle();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no rows are found
       
       if (existingFileError) throw existingFileError;
       
@@ -246,16 +256,6 @@ export async function moveFile(fileId: string, newItemId: string | null, slug: s
         throw new Error("This item already has a file uploaded");
       }
     }
-    
-    // First, check if the file exists
-    const { data: fileExists, error: fileExistsError } = await supabase
-      .from('checklist_files')
-      .select('id')
-      .eq('id', fileId)
-      .maybeSingle();
-    
-    if (fileExistsError) throw fileExistsError;
-    if (!fileExists) throw new Error("File not found");
     
     // Update the file record with the new item ID
     const { data, error: updateError } = await supabase
@@ -267,7 +267,7 @@ export async function moveFile(fileId: string, newItemId: string | null, slug: s
       .eq('id', fileId)
       .eq('checklist_id', checklistData.id) // Ensure we're updating a file that belongs to this checklist
       .select('id, item_id, filename, status, uploaded_at, file_path')
-      .single(); // Use single() instead of getting an array
+      .maybeSingle(); // Use maybeSingle to avoid errors when no rows are found
     
     if (updateError) {
       console.error("Update error details:", updateError);

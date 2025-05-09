@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -75,12 +74,19 @@ const PublicChecklist = () => {
         throw new Error("Please select a specific destination");
       }
       
-      // Use the moveFile service function
-      return moveFile(
-        fileId, 
-        newItemId === 'unclassified' ? null : newItemId,
-        slug!
-      );
+      try {
+        // Use the moveFile service function
+        const result = await moveFile(
+          fileId, 
+          newItemId === 'unclassified' ? null : newItemId,
+          slug!
+        );
+        
+        return result;
+      } catch (error) {
+        console.error("Move file error:", error);
+        throw error;
+      }
     },
     onMutate: async ({ fileId, newItemId }) => {
       // Optimistic update

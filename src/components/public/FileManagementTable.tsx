@@ -68,7 +68,7 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
   };
   
   const handleMoveFile = (fileId: string, newItemId: string) => {
-    // Skip handling "move" and "assign" placeholders
+    // Only process if a real destination is selected (not placeholder values)
     if (newItemId !== "move" && newItemId !== "assign") {
       onMoveFile(fileId, newItemId);
     }
@@ -226,7 +226,7 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
                                   <SelectValue placeholder="Move..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="move">Move to...</SelectItem>
+                                  <SelectItem value="move" disabled>Move to...</SelectItem>
                                   {items
                                     .filter(item => item.id !== file.item_id) // Don't show current item
                                     .map(item => (
@@ -289,7 +289,7 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
                               <SelectValue placeholder="Classify..." />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="assign">Assign to...</SelectItem>
+                              <SelectItem value="assign" disabled>Assign to...</SelectItem>
                               {items.map(item => (
                                 <SelectItem key={item.id} value={item.id}>
                                   {item.title}
