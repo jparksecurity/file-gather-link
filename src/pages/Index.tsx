@@ -3,7 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileUp, CheckCircle2, Upload, FileCheck, ArrowRight } from "lucide-react";
+import { FileUp, CheckCircle2, Upload, FileCheck, ArrowRight, Shield, Clock } from "lucide-react";
 
 const Index = () => {
   return (
@@ -12,7 +12,7 @@ const Index = () => {
         <div className="container flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileCheck className="size-6 text-primary" />
-            <h1 className="text-xl font-medium">DocCollect</h1>
+            <h1 className="text-xl font-bold">DocCollect</h1>
           </div>
         </div>
       </header>
@@ -36,8 +36,8 @@ const Index = () => {
           </div>
         </section>
 
-        <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <Card className="card-shadow border-border/40 overflow-hidden">
+        <section className="grid md:grid-cols-3 gap-8">
+          <Card className="card-shadow card-gradient border-border/40 overflow-hidden">
             <CardHeader className="bg-accent/50 border-b border-border/30">
               <CardTitle className="text-xl">Create</CardTitle>
               <CardDescription className="text-muted-foreground">
@@ -56,7 +56,7 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="card-shadow border-border/40 overflow-hidden">
+          <Card className="card-shadow card-gradient border-border/40 overflow-hidden">
             <CardHeader className="bg-accent/50 border-b border-border/30">
               <CardTitle className="text-xl">Share</CardTitle>
               <CardDescription className="text-muted-foreground">
@@ -75,7 +75,7 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="card-shadow border-border/40 overflow-hidden">
+          <Card className="card-shadow card-gradient border-border/40 overflow-hidden">
             <CardHeader className="bg-accent/50 border-b border-border/30">
               <CardTitle className="text-xl">Manage</CardTitle>
               <CardDescription className="text-muted-foreground">
@@ -95,7 +95,7 @@ const Index = () => {
           </Card>
         </section>
 
-        <section className="max-w-3xl mx-auto bg-card rounded-lg shadow-subtle p-8 border border-border/40">
+        <section className="max-w-3xl mx-auto bg-card card-gradient rounded-xl shadow-card p-8 border border-border/40">
           <h2 className="text-2xl font-medium mb-6 text-center">How it works</h2>
           <ol className="space-y-6">
             <li className="flex gap-4">
@@ -143,6 +143,32 @@ const Index = () => {
               </Link>
             </Button>
           </div>
+        </section>
+        
+        <section className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <Card className="card-shadow card-gradient">
+            <CardHeader>
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Secure & Private</CardTitle>
+              </div>
+              <CardDescription>
+                All files are stored securely with end-to-end encryption. No signup required for document providers.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          
+          <Card className="card-shadow card-gradient">
+            <CardHeader>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Fast & Efficient</CardTitle>
+              </div>
+              <CardDescription>
+                AI classification takes seconds, saving you hours of manual document sorting and organizing.
+              </CardDescription>
+            </CardHeader>
+          </Card>
         </section>
       </main>
 

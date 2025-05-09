@@ -5,7 +5,7 @@
  
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 210 30% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -14,11 +14,11 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
  
-    --primary: 215 65% 38%;
+    --primary: 215 65% 34%;
     --primary-foreground: 210 40% 98%;
  
-    --secondary: 210 30% 92%;
-    --secondary-foreground: 215 65% 38%;
+    --secondary: 195 40% 56%;
+    --secondary-foreground: 222 47% 11%;
  
     --muted: 210 30% 92%;
     --muted-foreground: 215 20% 45%;
@@ -82,7 +82,19 @@
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-medium tracking-tight;
+    @apply font-medium tracking-tight font-display;
+  }
+
+  h1 {
+    @apply text-3xl md:text-4xl font-bold;
+  }
+  
+  h2 {
+    @apply text-2xl md:text-3xl font-semibold;
+  }
+  
+  h3 {
+    @apply text-xl font-semibold;
   }
 }
 
@@ -98,10 +110,22 @@
   .hover-lift {
     @apply transition-transform duration-200 hover:-translate-y-1;
   }
+
+  .card-gradient {
+    @apply bg-gradient-to-br from-white to-slate-50;
+  }
+
+  .progress-bar {
+    @apply h-2 bg-muted overflow-hidden rounded-full;
+  }
+  
+  .progress-bar-value {
+    @apply h-full bg-primary rounded-full transition-all duration-300;
+  }
 }
 
 .dropzone {
-  @apply border-2 border-dashed border-gray-300 rounded-lg p-8 bg-white transition-colors;
+  @apply border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gradient-to-br from-white to-slate-50 transition-colors;
 }
 
 .dropzone.active {
@@ -111,3 +135,24 @@
 .dropzone.disabled {
   @apply bg-gray-50 border-gray-200 cursor-not-allowed;
 }
+
+.section-card {
+  @apply bg-white rounded-lg shadow-card border border-border/40 p-6 transition-shadow hover:shadow-elevated;
+}
+
+.status-progress {
+  @apply h-2 rounded-full bg-muted overflow-hidden;
+}
+
+.status-progress-value {
+  @apply h-full rounded-full transition-all duration-300;
+}
+
+.status-progress-value.complete {
+  @apply bg-status-uploaded;
+}
+
+.status-progress-value.partial {
+  @apply bg-status-unclassified;
+}
+
