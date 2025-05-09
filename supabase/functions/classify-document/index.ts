@@ -126,7 +126,7 @@ async function classifyDocument(openai: OpenAI, base64Pdf: string, filename: str
     
     // Call OpenAI with the PDF content and proper formatting
     const chatCompletion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4.1-mini",
       messages: messages,
       temperature: 0,
     });
