@@ -258,25 +258,29 @@ export async function moveFile(fileId: string, newItemId: string | null, slug: s
     if (!fileExists) throw new Error("File not found");
     
     // Update the file record with the new item ID
-    const { data: updatedFiles, error: updateError } = await supabase
+    const { data, error: updateError } = await supabase
       .from('checklist_files')
       .update({
         item_id: newItemId,
         status: newItemId ? 'uploaded' : 'unclassified'
       })
       .eq('id', fileId)
-      .select('id, item_id, filename, status, uploaded_at, file_path');
+      .eq('checklist_id', checklistData.id) // Ensure we're updating a file that belongs to this checklist
+      .select('id, item_id, filename, status, uploaded_at, file_path')
+      .single(); // Use single() instead of getting an array
     
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error("Update error details:", updateError);
+      throw new Error(`Failed to update file: ${updateError.message}`);
+    }
     
-    // Check if we got back any rows
-    if (!updatedFiles || updatedFiles.length === 0) {
-      throw new Error("Failed to update file");
+    if (!data) {
+      throw new Error("No file was updated - it might not exist or belong to this checklist");
     }
     
     return {
-      ...updatedFiles[0],
-      status: updatedFiles[0].status as "uploaded" | "unclassified"
+      ...data,
+      status: data.status as "uploaded" | "unclassified"
     } as ChecklistFile;
   } catch (error) {
     console.error("Error moving file:", error);

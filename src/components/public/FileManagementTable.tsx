@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { HelpCircle, Loader2, Trash2 } from "lucide-react";
 import { 
@@ -69,7 +68,10 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
   };
   
   const handleMoveFile = (fileId: string, newItemId: string) => {
-    onMoveFile(fileId, newItemId);
+    // Skip handling "move" and "assign" placeholders
+    if (newItemId !== "move" && newItemId !== "assign") {
+      onMoveFile(fileId, newItemId);
+    }
   };
   
   const handleDeleteSelected = () => {
@@ -225,11 +227,13 @@ const FileManagementTable: React.FC<FileManagementTableProps> = ({
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="move">Move to...</SelectItem>
-                                  {items.map(item => (
-                                    <SelectItem key={item.id} value={item.id} disabled={item.id === file.item_id}>
-                                      {item.title}
-                                    </SelectItem>
-                                  ))}
+                                  {items
+                                    .filter(item => item.id !== file.item_id) // Don't show current item
+                                    .map(item => (
+                                      <SelectItem key={item.id} value={item.id}>
+                                        {item.title}
+                                      </SelectItem>
+                                    ))}
                                   <SelectItem value="unclassified" disabled={!file.item_id}>
                                     Unclassified
                                   </SelectItem>

@@ -69,7 +69,12 @@ const PublicChecklist = () => {
   // Move file mutation
   const moveFileMutation = useMutation({
     mutationFn: async ({ fileId, newItemId }: { fileId: string; newItemId: string }) => {
-      // Use the new moveFile service function
+      // Skip if "move" or "assign" placeholder values
+      if (newItemId === "move" || newItemId === "assign") {
+        throw new Error("Please select a specific destination");
+      }
+      
+      // Use the moveFile service function
       return moveFile(
         fileId, 
         newItemId === 'unclassified' ? null : newItemId,
@@ -101,8 +106,14 @@ const PublicChecklist = () => {
       
       return { previousChecklist };
     },
-    onError: (err, _, context) => {
-      toast.error('Failed to move file');
+    onError: (err: any, _, context) => {
+      console.error("Move file error:", err);
+      
+      // Display a more specific error message
+      const errorMessage = err?.message || "Failed to move file";
+      toast.error(errorMessage);
+      
+      // Restore previous data
       if (context?.previousChecklist) {
         queryClient.setQueryData(['checklist', slug], context.previousChecklist);
       }
@@ -112,6 +123,9 @@ const PublicChecklist = () => {
         ? checklist?.items.find(item => item.id === result.item_id)?.title 
         : 'Unclassified';
       toast.success(`File moved to ${targetName}`);
+      
+      // Refresh data to ensure we have the latest state
+      queryClient.invalidateQueries(['checklist', slug]);
     },
   });
 
@@ -177,6 +191,8 @@ const PublicChecklist = () => {
   const handleMoveFile = (fileId: string, newItemId: string) => {
     if (newItemId && newItemId !== "move" && newItemId !== "assign") {
       moveFileMutation.mutate({ fileId, newItemId });
+    } else if (newItemId === "move" || newItemId === "assign") {
+      toast.info("Please select a specific destination");
     }
   };
 
