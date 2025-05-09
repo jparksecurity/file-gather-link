@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -124,8 +125,10 @@ const PublicChecklist = () => {
         : 'Unclassified';
       toast.success(`File moved to ${targetName}`);
       
-      // Refresh data to ensure we have the latest state
-      queryClient.invalidateQueries(['checklist', slug]);
+      // Fix: Use the proper type for invalidateQueries
+      queryClient.invalidateQueries({
+        queryKey: ['checklist', slug]
+      });
     },
   });
 
