@@ -1,14 +1,21 @@
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUp, CheckCircle2, Upload, FileCheck } from "lucide-react";
-import Header from "@/components/Header";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
+      <header className="bg-white shadow-sm py-4">
+        <div className="container flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileCheck className="size-6 text-primary" />
+            <h1 className="text-xl font-bold">DocCollect</h1>
+          </div>
+        </div>
+      </header>
       
       <main className="container py-12 flex flex-col gap-12">
         <section className="text-center max-w-3xl mx-auto">

@@ -10,7 +10,7 @@ const ImportantNotes: React.FC = () => {
         <li>Only PDF files are accepted</li>
         <li>Each requirement can only have one file</li>
         <li>The AI will try to match your document to the correct requirement</li>
-        <li>You can select multiple files for deletion using the checkboxes</li>
+        <li>If AI can't classify your document, it will appear in the "Unclassified Files" section</li>
       </ul>
     </div>
   );

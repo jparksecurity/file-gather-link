@@ -9,8 +9,8 @@ import { getChecklist, getDownloadUrl } from "@/services/checklistService";
 import { useQuery } from "@tanstack/react-query";
 import { ChecklistFile } from "@/types/checklist";
 
-// Import our components
-import Header from "@/components/Header";
+// Import our new components
+import Header from "@/components/manager/Header";
 import ShareSection from "@/components/manager/ShareSection";
 import DocumentList from "@/components/manager/DocumentList";
 import TableUnclassifiedFileList from "@/components/manager/TableUnclassifiedFileList";
@@ -143,10 +143,10 @@ const ManagerChecklist: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Header className="mb-8" />
+      <Header />
 
       <main className="container py-8 flex-1">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto"> {/* Increased max width for tables */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold">Document Manager</h1>
             <Badge variant="outline" className="text-sm">
