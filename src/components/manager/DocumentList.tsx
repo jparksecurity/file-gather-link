@@ -67,7 +67,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
           onClick={onDownloadAll}
           disabled={!checklist.files?.length}
         >
-          <FilesIcon className="h-4 w-4 mr-1" /> Download All Files ({totalDownloadableFiles})
+          <FilesIcon className="h-4 w-4 mr-1" /> Download All as ZIP ({totalDownloadableFiles} files)
         </Button>
       </div>
       

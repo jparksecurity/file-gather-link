@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { getChecklist, getDownloadUrl } from "@/services/checklistService";
+import { getChecklist, getDownloadUrl, getZipDownloadUrl } from "@/services/checklistService";
 import { useQuery } from "@tanstack/react-query";
 import { ChecklistFile } from "@/types/checklist";
 
-// Import our new components
+// Import our components
 import Header from "@/components/manager/Header";
 import ShareSection from "@/components/manager/ShareSection";
 import DocumentList from "@/components/manager/DocumentList";
@@ -81,76 +81,20 @@ const ManagerChecklist: React.FC = () => {
       toast.info("No files to download");
       return;
     }
-
-    const files = [...(checklist.files || [])];
-    const totalFiles = files.length;
     
-    toast.info(`Preparing ${totalFiles} files for download...`);
+    toast.info(`Preparing ZIP file with ${checklist.files.length} files...`);
     
     try {
-      // Create an array of promises for all downloads
-      const downloadPromises = files.map(async (file, index) => {
-        try {
-          // Add a delay based on the index to space out downloads
-          await new Promise(resolve => setTimeout(resolve, index * 1000));
-          
-          // Get the associated item title if this file is classified
-          let itemTitle: string | undefined;
-          
-          if (file.item_id) {
-            // Find the item associated with this file to get its title
-            const associatedItem = checklist?.items.find(item => item.id === file.item_id);
-            if (associatedItem) {
-              itemTitle = associatedItem.title;
-            }
-          } else {
-            // For unclassified files, use "Unclassified" as the prefix
-            itemTitle = "Unclassified";
-          }
-          
-          // Get the download URL and suggested filename
-          const { signedUrl, downloadFilename } = await getDownloadUrl(
-            file.file_path, 
-            itemTitle, 
-            file.filename
-          );
-  
-          // Create a temporary link with the download attribute set
-          const link = document.createElement('a');
-          link.href = signedUrl;
-          link.setAttribute('download', downloadFilename || file.filename);
-          
-          // Append to body, click, and remove
-          document.body.appendChild(link);
-          link.click();
-          
-          // Give the browser a moment to initiate the download before removing the link
-          await new Promise(resolve => setTimeout(resolve, 300));
-          document.body.removeChild(link);
-          
-          console.log(`Downloaded file ${index + 1}/${totalFiles}: ${downloadFilename || file.filename}`);
-          return true;
-        } catch (err) {
-          console.error(`Error downloading file ${index + 1}/${totalFiles}:`, err);
-          return false;
-        }
-      });
+      // Get the ZIP download URL
+      const signedUrl = await getZipDownloadUrl(slug!, adminKey || undefined);
       
-      // Wait for all downloads to finish or fail
-      const results = await Promise.all(downloadPromises);
-      const successCount = results.filter(Boolean).length;
+      // Trigger the download using the signed URL
+      window.location.href = signedUrl;
       
-      if (successCount === totalFiles) {
-        toast.success(`Downloaded all ${totalFiles} files`);
-      } else {
-        toast.success(`Downloaded ${successCount} of ${totalFiles} files`);
-        if (successCount < totalFiles) {
-          toast.error(`Failed to download ${totalFiles - successCount} files`);
-        }
-      }
+      toast.success("ZIP download started");
     } catch (error) {
-      console.error("Error in download all files operation:", error);
-      toast.error("Failed to download all files. Please try individually.");
+      console.error("Error downloading ZIP:", error);
+      toast.error("Failed to create ZIP file. Please try again.");
     }
   };
 

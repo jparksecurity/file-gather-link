@@ -218,3 +218,27 @@ export async function getDownloadUrl(filePath: string, itemTitle?: string, filen
     throw error;
   }
 }
+
+export async function getZipDownloadUrl(slug: string, adminKey?: string) {
+  try {
+    console.log(`Getting ZIP download URL for ${slug} with admin key: ${adminKey ? 'provided' : 'not provided'}`);
+    
+    // Call the edge function to create the ZIP file
+    const { data, error } = await supabase.functions.invoke('create-zip', {
+      body: JSON.stringify({ 
+        slug,
+        adminKey 
+      }),
+    });
+    
+    if (error) {
+      console.error('Error invoking create-zip function:', error);
+      throw new Error(`Failed to create ZIP file: ${error.message || 'Unknown error'}`);
+    }
+    
+    return data.signedUrl;
+  } catch (error) {
+    console.error('Error getting ZIP download URL:', error);
+    throw error;
+  }
+}
